@@ -6,7 +6,11 @@ It's uses on [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openw
 
 ## Features:
  - NSS Build, lowering the CPU burden.
- - Many packages like AdBlock, Usteer (for making devices roam between 5GHz and 2.4GHz antennas seamlessly)
+ - `10.0.0.0` home network, `192.168.0.0` for IoT devices.
+ - Adde Aria2 because sometimes you want to download something while you sleep.
+ - Port 4 ready for dumb AP (as a bridge for IoT devices), that can be changed into a normal port later.
+ - Many packages like AdBlock, Usteer (for making devices roam between 5GHz and 2.4GHz antennas seamlessly) and else.
+ - Plex Media Server script (don't go overboard, this CPU is like a [Motorola Moto G5 Plus](https://www.gsmarena.com/motorola_moto_g5_plus-8453.php) from 2017).
 
 ## The ugly
 
@@ -84,3 +88,21 @@ The entire build process can be broken down into the following ordered steps:
 ---
 
 Since this is done over OpenWRT snapshots, development is a moving target, so whatever could be built today may not tomorrow because something broke. PR's are welcome to apply fixes.
+
+---
+
+## FAQ
+
+* **Do you plan to add XXX device?**
+
+No unless I use it. I've already one and works great.
+
+* **My build fails, can you help me?**
+
+Check the error logs, upload it to an AI and check what fix returns.
+
+* **The AI says I should edit something inside the `feeds` directory**
+
+Do not. Asks for a non-invansive fix. Post it here or make it a PR to integrate it to the script.
+
+* **
