@@ -75,29 +75,29 @@ show_loading_animation() {
     local delay=0.15
     local spinstr='|/-\'
     local temp
-
+    
     # Hide cursor (if supported)
     tput civis 2>/dev/null || true
-
+    
     echo "" # Start on new line
-
+    
     while kill -0 "$pid" 2>/dev/null; do
         local temp=${spinstr#?}
         local spinchar=${spinstr%"$temp"}
         local spinstr=$temp$spinchar
-
+        
         # Get the last line of the log to show current activity
         # We cut it to 70 chars to prevent line wrapping messiness
         local current_task=$(tail -n 1 "$log_file" 2>/dev/null | tr -cd '[:print:]' | cut -c1-70)
-
+        
         if [ -z "$current_task" ]; then current_task="Initializing..."; fi
-
+        
         # \r moves cursor to start of line, \033[K clears the rest of the line
         printf "\r [%c] Building: %-70s" "$spinchar" "$current_task"
-
+        
         sleep "$delay"
     done
-
+    
     # Restore cursor
     tput cnorm 2>/dev/null || true
     echo "" # Final newline
@@ -158,11 +158,11 @@ download_prebuilt_artifact() {
             if [[ "$file_name" == llvm-bpf-* ]] && [ -n "$expected_dir" ]; then
                 local extracted_dir
                 extracted_dir=$(find . -maxdepth 1 -type d -name "llvm-bpf-*" | head -n1)
-
+                
                 if [ -n "$extracted_dir" ]; then
                     # Fix: If expected_dir exists, mv puts extracted_dir INSIDE it, causing errors.
                     # We must remove the existing directory to ensure a clean rename.
-                    if [ -d "$expected_dir" ]; then
+                    if [ -d "$expected_dir" ]; then 
                         rm -rf "$expected_dir"
                     fi
                     mv "$extracted_dir" "$expected_dir"
@@ -432,7 +432,7 @@ if [ "$CONF_CLEAN_BUILD" = true ]; then
 
     # --- Step 7: Fixes & Tools ---
     echo "[7/12] Applying fixes and downloading tools..."
-
+    
     # (Removed unreliable binutils fix from here; moved to Critical Fixes section below)
 
     if [ -f "include/cmake.mk" ] && ! grep -q "CMAKE_POLICY_VERSION_MINIMUM=3.5" include/cmake.mk; then
@@ -527,11 +527,11 @@ cd "$BASE_DIR/nss-base" || exit 1
 
 if [ -f "toolchain/binutils/Makefile" ]; then
     echo "🔧 Checking binutils configuration..."
-
+    
     # 1. Reset the Makefile to ORIGINAL state (reverting our disable-patches)
     # This allows libsframe to build normally (Enabled) which solves the "No rule" error.
     git checkout toolchain/binutils/Makefile 2>/dev/null || true
-
+    
     # 2. Apply FIX for OpenWRT Issue #13428 (Missing Install)
     # Since we enabled libsframe (by resetting), we must ensure it gets installed
     # to staging, otherwise downstream packages will fail to link against it.
@@ -546,14 +546,14 @@ if [ -f "toolchain/binutils/Makefile" ]; then
     # We must wipe the "confused" build directory where we tried to disable it.
     if grep -q "libsframe" "toolchain/binutils/Makefile"; then
         echo "   -> Forcing deep clean of binutils to apply install fix..."
-
+        
         # A. Delete the compiled build directories
         find build_dir -type d -name "binutils-2.44" -exec rm -rf {} + 2>/dev/null || true
-
+        
         # B. Remove STAGING artifacts (Start fresh)
         find staging_dir -name "libbfd.la" -delete 2>/dev/null || true
         find staging_dir -name "libsframe.la" -delete 2>/dev/null || true
-
+        
         # C. Remove build stamps to trick OpenWRT into re-running configure
         find build_dir -name ".built_*binutils*" -delete 2>/dev/null || true
         find build_dir -name ".configured_*binutils*" -delete 2>/dev/null || true
@@ -561,11 +561,11 @@ if [ -f "toolchain/binutils/Makefile" ]; then
 
         # D. Run standard clean as a fallback
         make toolchain/binutils/clean 2>/dev/null || true
-
+        
         # E. PRE-COMPILE BINUTILS SINGLE-THREADED
         echo "   -> Pre-compiling binutils (Single Threaded) to ensure libraries exist..."
         make toolchain/binutils/compile -j1 V=s
-
+        
         echo "   ✓ Binutils reset & patched. Main build can proceed."
     fi
 else
@@ -643,11 +643,11 @@ else
     echo "   (Detailed build logs are being saved to $LOG_FILE)"
     make "${MAKE_ARGS[@]}" > "$LOG_FILE" 2>&1 &
     make_pid=$!
-
+    
     show_loading_animation "$make_pid" "$LOG_FILE"
-
+    
     wait "$make_pid"
-
+    
     # Wait returns exit code of last command. Check if make failed.
     # Note: wait alone returns 0 if pid is gone, but we want the exit code.
     # Bash 'wait' usually returns the exit code of the job.
