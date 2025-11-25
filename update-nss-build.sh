@@ -392,11 +392,33 @@ if [ "$CONF_CLEAN_BUILD" = true ]; then
     # --- Step 4: Feeds ---
     echo "[4/12] Updating feeds..."
     cd "$BASE_DIR/nss-base" || exit 1
+    
+    # FIX: Use custom feeds configuration if available in the quality-base repo
+    # This ensures we use the exact package revisions intended by the custom build
+    if [ -f "../quality-base/WRX36/feeds.conf" ]; then
+        echo "   -> Using custom feeds.conf from repository..."
+        cp "../quality-base/WRX36/feeds.conf" ./feeds.conf
+    elif [ -f "../quality-base/WRX36/feeds.conf.default" ]; then
+        echo "   -> Using custom feeds.conf.default from repository..."
+        cp "../quality-base/WRX36/feeds.conf.default" ./feeds.conf.default
+    else
+        echo "   -> No custom feeds found, using defaults."
+    fi
+
     clone_or_update_repo https://github.com/fantastic-packages/packages package/fantastic_packages snapshot
     ./scripts/feeds update -a && ./scripts/feeds install -a
 
     # --- Step 5: Config Import ---
     echo "[5/12] Importing configurations..."
+    
+    # FIX: Apply custom files (config overrides) from quality-base repo
+    # JKool702's repo likely has a 'files' folder inside the WRX36 directory
+    if [ -d "../quality-base/WRX36/files" ]; then
+        echo "   -> Copying custom config files from repository..."
+        mkdir -p files
+        cp -r "../quality-base/WRX36/files/"* files/
+    fi
+
     if [[ -d "${prev_files_dir_path}" ]]; then cp -r "${prev_files_dir_path}" ./; fi
     if [[ -f "${prev_kernel_config_path}" ]]; then cp "${prev_kernel_config_path}" .config.kernel.prev; else touch .config.kernel.prev; fi
 
@@ -423,8 +445,16 @@ if [ "$CONF_CLEAN_BUILD" = true ]; then
         echo "CONFIG_TARGET_SQUASHFS_BLOCK_SIZE=256"
         echo "CONFIG_TARGET_ROOTFS_TARGZ=n"
         echo "CONFIG_TARGET_ROOTFS_EXT4FS=n"
-        echo "CONFIG_TARGET_KERNEL_PARTSIZE=8192"
-        echo "CONFIG_TARGET_ROOTFS_PARTSIZE=512"
+        echo "CONFIG_TARGET_KERNEL_PARTSIZE=16"
+        echo "CONFIG_TARGET_ROOTFS_PARTSIZE=112"
+        
+        # --- Flash Wear Reduction & Optimization ---
+        # 1. Enable ZRAM (Compressed RAM) to avoid swapping to Flash
+        echo "CONFIG_PACKAGE_zram-swap=y"
+        echo "CONFIG_PACKAGE_kmod-zram=y"
+        # 2. Force ZSTD compression for UBIFS (Better compression = Less writes)
+        echo "CONFIG_TARGET_UBIFS_COMPRESSION_ZSTD=y"
+        
         echo "# CONFIG_PACKAGE_kmod-ath11k-ahb is not set"
         echo "# CONFIG_PACKAGE_kmod-ath11k-pci is not set"
     } >> .config
@@ -433,8 +463,6 @@ if [ "$CONF_CLEAN_BUILD" = true ]; then
     # --- Step 7: Fixes & Tools ---
     echo "[7/12] Applying fixes and downloading tools..."
     
-    # (Removed unreliable binutils fix from here; moved to Critical Fixes section below)
-
     if [ -f "include/cmake.mk" ] && ! grep -q "CMAKE_POLICY_VERSION_MINIMUM=3.5" include/cmake.mk; then
         sed -i '/^cmake_bool[[:space:]]*=/a CMAKE_OPTIONS += -DCMAKE_POLICY_VERSION_MINIMUM=3.5' include/cmake.mk
     fi
@@ -492,85 +520,104 @@ if [ "$CONF_CLEAN_BUILD" = true ]; then
     echo "[10/12] Downloading Sources..."
     make download V=s || { echo "❌ ERROR: Download failed."; exit 1; }
 
-    # --- Step 11: Kernel Prep ---
+    # --- Step 11: Kernel Prep (Initial) ---
     echo "[11/12] Kernel Preparation..."
     make target/linux/clean
     make -j"$(nproc)" V=sc target/linux/prepare 2>&1 | tee -a "$BASE_DIR/kernel_prep.log"
-
-    target_board=$(grep -E '^CONFIG_TARGET_[a-z]+=y' .config | sed -E 's/^CONFIG_TARGET_//;s/=y$//')
-    builddir_kernel=$(find build_dir/target*/linux-${target_board}*/linux-* -maxdepth 1 -type d | head -n1)
-
-    # INLINED: apply_kernel_tweaks
-    if [ -n "$builddir_kernel" ] && [ -d "$builddir_kernel" ]; then
-        echo "⚙️  Applying ARM v8-a optimization tweaks..."
-        makefile="${builddir_kernel}/arch/arm64/Makefile"
-
-        if [ -f "$makefile" ]; then
-            if ! grep -q "asm-arch.*cortex-a53.*crc.*crypto" "$makefile"; then
-                sed -i '/^asm-arch/s/=.*/= armv8-a+crc+crypto+rdma/' "$makefile" || \
-                    echo "asm-arch := armv8-a+crc+crypto+rdma" >> "$makefile"
-            fi
-            if ! grep -q "\\-Wa,\\-mcpu=cortex-a53" "$makefile"; then
-                sed -i '/^KBUILD_CFLAGS/s/$/ -Wa,-mcpu=cortex-a53+crc+crypto+rdma/' "$makefile" || \
-                    echo "KBUILD_CFLAGS += -Wa,-mcpu=cortex-a53+crc+crypto+rdma" >> "$makefile"
-            fi
-            echo "✓ Kernel tweaks applied"
-        else
-            echo "⚠️  Makefile not found at $makefile"
-        fi
-    fi
 
 fi # End of Clean Build Steps
 
 # --- CRITICAL FIXES (Runs on Clean Build AND Resume) ---
 cd "$BASE_DIR/nss-base" || exit 1
 
+# 1. FIX: Binutils 2.44 libsframe (Dependecy Graph Patch)
 if [ -f "toolchain/binutils/Makefile" ]; then
     echo "🔧 Checking binutils configuration..."
     
-    # 1. Reset the Makefile to ORIGINAL state (reverting our disable-patches)
-    # This allows libsframe to build normally (Enabled) which solves the "No rule" error.
-    git checkout toolchain/binutils/Makefile 2>/dev/null || true
+    # We must fix the broken dependency graph. The standard build allows
+    # libbfd to build before libsframe is ready in parallel builds.
+    # We fix this by injecting 'all-bfd: all-libsframe' into Makefile.in
     
-    # 2. Apply FIX for OpenWRT Issue #13428 (Missing Install)
-    # Since we enabled libsframe (by resetting), we must ensure it gets installed
-    # to staging, otherwise downstream packages will fail to link against it.
-    if ! grep -q "libsframe" "toolchain/binutils/Makefile"; then
-        echo "   -> Applying OpenWRT Issue #13428 Fix (Copy libsframe to staging)..."
-        # We find the installation command and append the copy instruction
-        # We use a loose match on '$(MAKE) .* install' which is standard in OpenWRT makefiles
-        sed -i '/$(MAKE) .* install/a \\t$(CP) $(TOOLCHAIN_DIR)/lib/libsframe.{a,so*} $(TOOLCHAIN_DIR)/lib/ || true' "toolchain/binutils/Makefile"
+    # Check if we need to apply the fix
+    NEED_FIX=true
+    if grep -q "all-bfd: all-libsframe" "build_dir/toolchain"*"/binutils-2.44/Makefile.in" 2>/dev/null; then
+        NEED_FIX=false
+        echo "   ✓ Dependency patch already applied."
     fi
 
-    # 3. FORCE CLEAN if reusing previous build (Critical for Resume)
-    # We must wipe the "confused" build directory where we tried to disable it.
-    if grep -q "libsframe" "toolchain/binutils/Makefile"; then
-        echo "   -> Forcing deep clean of binutils to apply install fix..."
-        
-        # A. Delete the compiled build directories
+    if [ "$NEED_FIX" = true ]; then
+        echo "   -> Preparing binutils source to apply dependency patch..."
+        # 1. Clean old artifacts to ensure a fresh start
         find build_dir -type d -name "binutils-2.44" -exec rm -rf {} + 2>/dev/null || true
-        
-        # B. Remove STAGING artifacts (Start fresh)
         find staging_dir -name "libbfd.la" -delete 2>/dev/null || true
         find staging_dir -name "libsframe.la" -delete 2>/dev/null || true
-        
-        # C. Remove build stamps to trick OpenWRT into re-running configure
-        find build_dir -name ".built_*binutils*" -delete 2>/dev/null || true
-        find build_dir -name ".configured_*binutils*" -delete 2>/dev/null || true
-        find build_dir -name ".prepared_*binutils*" -delete 2>/dev/null || true
-
-        # D. Run standard clean as a fallback
         make toolchain/binutils/clean 2>/dev/null || true
         
-        # E. PRE-COMPILE BINUTILS SINGLE-THREADED
-        echo "   -> Pre-compiling binutils (Single Threaded) to ensure libraries exist..."
-        make toolchain/binutils/compile -j1 V=s
+        # 2. Unpack sources (Prepare)
+        echo "   -> Unpacking binutils..."
+        make toolchain/binutils/prepare V=s
         
-        echo "   ✓ Binutils reset & patched. Main build can proceed."
+        # 3. Locate and Patch Makefile.in
+        # We find the Makefile.in inside the unpacked build directory
+        # Since there might be multiple, we target the top-level one.
+        BN_BUILD_DIR=$(find build_dir/toolchain* -maxdepth 1 -name "binutils-*" -type d | head -n1)
+        
+        if [ -n "$BN_BUILD_DIR" ] && [ -f "$BN_BUILD_DIR/Makefile.in" ]; then
+            echo "   -> Patching $BN_BUILD_DIR/Makefile.in with explicit dependency..."
+            # Append the rule to the end of the file. Safe and effective.
+            echo "" >> "$BN_BUILD_DIR/Makefile.in"
+            echo "# FIX: Force libsframe to build before bfd to prevent race conditions" >> "$BN_BUILD_DIR/Makefile.in"
+            echo "all-bfd: all-libsframe" >> "$BN_BUILD_DIR/Makefile.in"
+            echo "   ✓ Patch applied."
+        else
+            echo "   ⚠️ Error: Could not find binutils build directory to patch."
+        fi
+        
+        # 4. Compile with FULL PARALLELISM
+        # Now that the dependency graph is correct, make will handle the order.
+        echo "   -> Compiling binutils (Multi-Threaded -j$(nproc))..."
+        make toolchain/binutils/compile -j$(nproc) V=s
     fi
 else
     echo "⚠️ Warning: toolchain/binutils/Makefile not found. Skipping fix."
 fi
+
+# 2. FIX: Kernel Makefile Corruption (Recipe before first target)
+# This loop finds ALL linux build directories (active or not) and sanitizes them
+echo "🔧 Checking for Kernel Makefile corruption..."
+find build_dir/target* -path "*/linux-*" -name "Makefile" 2>/dev/null | grep "/arch/arm64/Makefile" | while read -r K_MAKEFILE; do
+    if [ -f "$K_MAKEFILE" ]; then
+        echo "   -> Scanning $K_MAKEFILE..."
+        
+        # FIX A: "Nuclear Option" Rebuild of corrupted lines
+        # We look for lines starting with whitespace that are trying to set asm-arch or KBUILD_CFLAGS
+        # and rewrite them cleanly.
+        
+        if grep -q "^[[:space:]]\+\(asm-arch\|KBUILD_CFLAGS\)" "$K_MAKEFILE"; then
+             echo "      ⚠️ Detected indented variables. Applying Nuclear Fix..."
+             
+             # 1. Delete existing (corrupt) lines for these variables
+             sed -i '/^[[:space:]]*asm-arch/d' "$K_MAKEFILE"
+             sed -i '/^[[:space:]]*KBUILD_CFLAGS.*cortex-a53/d' "$K_MAKEFILE"
+             
+             # 2. Append clean versions to the end of the file
+             echo "" >> "$K_MAKEFILE"
+             echo "# Auto-injected by NSS build script" >> "$K_MAKEFILE"
+             echo "asm-arch := armv8-a+crc+crypto+rdma" >> "$K_MAKEFILE"
+             echo "KBUILD_CFLAGS += -Wa,-mcpu=cortex-a53+crc+crypto+rdma" >> "$K_MAKEFILE"
+             
+             echo "      ✓ Makefile rewritten and sanitized."
+        else
+             # Only inject if missing entirely (safe inject)
+             if ! grep -q "armv8-a+crc+crypto+rdma" "$K_MAKEFILE"; then
+                 echo "" >> "$K_MAKEFILE"
+                 echo "asm-arch := armv8-a+crc+crypto+rdma" >> "$K_MAKEFILE"
+                 echo "KBUILD_CFLAGS += -Wa,-mcpu=cortex-a53+crc+crypto+rdma" >> "$K_MAKEFILE"
+                 echo "      ✓ Optimizations injected."
+             fi
+        fi
+    fi
+done
 
 
 # --- Step 12: Build ---
