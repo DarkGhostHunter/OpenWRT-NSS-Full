@@ -24,70 +24,30 @@ Since this is a custom built firmware, you will need to compile your own additio
 
 ---
 
-The entire build process can be broken down into the following ordered steps:
+## Features
 
-## Firmware Build Process Summary
+In cause you didn't check the source repositories, here is a gist of what this script does to OpenWRT:
 
-1.  **Build Performance Setup [0/11]**:
-    * **Installs ccache** (compiler cache) to speed up future rebuilds.
-    * **Prompts and handles the setup for a RAM-based build directory (`tmpfs`)** to accelerate compilation, especially when running inside a container environment like Distrobox.
+### Firmware Configuration & Optimization
+* **Target:** Dynalink DL-WRX36 (Qualcomm IPQ807x) with **Cortex-A53** optimizations (CRC, Crypto, RDMA).
+* **Storage Layout:**
+    * **Partitions:** Kernel increased to **16MB**; RootFS reduced to **112MB**.
+    * **Filesystem:** SquashFS (256 block size) enabled; Ext4 and TarGz disabled.
+    * **Flash Protection:** Enables **ZRAM** (swap on compressed RAM) and forces **ZSTD compression** for UBIFS to minimize flash wear.
+* **NSS Support:** Builds from NSS-specific branches and explicitly disables standard `ath11k` drivers to avoid conflicts.
 
-2.  **Install Build Dependencies [1/10]**:
-    * Uses `sudo apt-get install` to ensure all necessary Debian packages and libraries required by the OpenWrt build system (including `clang`, `zstd`, `libelf-dev`, etc.) are installed on the host system.
+### Critical Build Fixes
+* **Binutils 2.44:** Injects a specific dependency rule (`all-bfd: all-libsframe`) to prevent race conditions during parallel builds.
+* **Kernel Makefile:** Uses a "Nuclear Option" to detect and sanitize corrupt `asm-arch` variables in the kernel Makefiles.
+* **Toolchain:** Forces `-fPIC` for ZSTD host tools and enforces CMake policy version 3.5+.
 
-3.  **Setup Directory Structure [2/10]**:
-    * Creates the primary working directory structure, typically `~/openwrt`.
+### Package Management
+* **Sources:** Integrates `fantastic-packages` and custom configs from `jkool702`.
+* **Exclusions:** Automatically filters out known unstable packages (e.g., `shadowsocks-rust`, `pcap-dnsproxy`, `stuntman`) to prevent build errors.
 
-4.  **Clone NSS Base Repository [3/10]**:
-    * Clones or updates the **AgustinLorenzo/openwrt** Git repository (the NSS base) into the `~/openwrt/nss-base` directory.
-
-5.  **Download Quality Build Configuration [4/10]**:
-    * Clones or updates the **jkool702/openwrt-custom-builds** repository to obtain the pre-configured `config.buildinfo` and `feeds.buildinfo` specific to the DL-WRX36 device.
-
-6.  **Prepare Build Environment [5/10]**:
-    * Clones the `fantastic-packages/packages` feed.
-    * Runs `./scripts/feeds update -a` and `./scripts/feeds install -a` to download package definitions and install them into the build system.
-
-7.  **Apply Configuration and Import Files [6/10]**:
-    * Imports optional custom files (like the `files/` directory or previous kernel/main configurations) specified by the user's script variables.
-    * Applies the main configuration (`.config`) using the downloaded Quality build configuration as the fallback if no custom config is provided.
-
-8.  **Update Configuration [7/10]**:
-    * Runs `make defconfig` to expand the current `.config` and merge in new default options.
-    * Appends **critical build options** to the `.config` to ensure the correct target (Dynalink DL-WRX36), subtarget, and firmware settings are enabled.
-    * Applies a global **CMake policy fix** in `include/cmake.mk` required for some packages that use the old CMAKE (otherwise, some packages won't compile. [See this for more information](https://github.com/openwrt/packages/issues/27607)).
-
-9.  **Download Prebuilt Artifacts [7.5/10]**:
-    * Uses the dynamically version-aware `download_prebuilt_artifact` function to fetch the latest **`llvm-bpf-*.tar.zst`** toolchain. This step is critical for faster eBPF program compilation during the main build.
-    * Downloads **`kernel-debug.tar.zst`**.
-
-10. **Create Package Installation List [8/10]**:
-    * Parses the Quality build's configuration file to create separate lists for packages to be built into the firmware (`=y`) and optional modules (`=m`).
-    * **Prompts the user** whether to include all optional modules in the final build to install later in-device, or not.
-
-11. **Integrate Packages [9/10]**:
-    * Appends the combined list of required packages and selected modules to the `.config`.
-    * Runs `make defconfig` one last time to validate and finalize the full package selection.
-
-12. **Final Configuration and Settings [10/10]**:
-    * Checks for and **prompts the user** to apply custom configuration files (e.g., network settings) to the firmware's overlay (`files/etc/config`).
-    * **Prompts the user** to open `make menuconfig` for any final manual adjustments.
-    * Generates a final difference file (`final.config.diff`) for reference.
-
-13. **Build Execution & Caching**:
-    * Prompts the user to select the **build intensity** (e.g., multi-threaded quiet or single-threaded verbose).
-    * Mounts the `tmpfs` build directory and **restores package caches** from previous failed builds to resume progress.
-    * Executes the build using `make download` (to fetch source archives) and then `make all` (to compile the firmware).
-    * If successful, the **ccache** directory is compressed and saved.
-
-14. **Post-Build Cleanup**:
-    * Confirms the build completion and lists the final firmware images (`.bin` or `.ubi`) located in the `bin/targets` directory.
-    * **Prompts the user** to unmount the `tmpfs` directory to free up system RAM.
-    * Removes the `.build_in_progress` marker to indicate the process is complete.
-
----
-
-Since this is done over OpenWRT snapshots, development is a moving target, so whatever could be built today may not tomorrow because something broke. PR's are welcome to apply fixes.
+### Automation
+* **Workflow:** Separation of interactive configuration and unattended execution phases.
+* **Performance:** Supports configurable RAM-based building (`tmpfs`) and auto-installs `ccache`.
 
 ---
 
@@ -104,5 +64,3 @@ Check the error logs, upload it to an AI and check what fix returns.
 * **The AI says I should edit something inside the `feeds` directory**
 
 Do not. Asks for a non-invansive fix. Post it here or make it a PR to integrate it to the script.
-
-* **
