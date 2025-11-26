@@ -295,6 +295,45 @@ manage_custom_files() {
     fi
 }
 
+manage_custom_packages() {
+    local local_pkgs_path="${BASE_DIR}/packages"
+
+    log "Managing Custom Packages..."
+
+    # 1. Create if missing
+    if [ ! -d "$local_pkgs_path" ]; then
+        log "Local packages directory missing. Creating empty directory..."
+        mkdir -p "$local_pkgs_path"
+    fi
+
+    # 2. Prompt for editing
+    echo -e "\n\033[1;33m[USER ACTION REQUIRED]\033[0m"
+    read -p "Do you want to pause to add/edit custom packages in '${local_pkgs_path}'? [y/N]: " edit_choice
+    if [[ "$edit_choice" =~ ^[Yy]$ ]]; then
+        echo -e "\n\033[1;32mScript PAUSED.\033[0m"
+        echo "You can now add package sources (directories with Makefiles) to: ${local_pkgs_path}"
+        echo "If you need significant time, you can press Ctrl+C to stop, finish editing, and restart the script."
+        echo -e "Type \033[1;37mready\033[0m and press Enter when you are done."
+        
+        while true; do
+            read -p "> " input_str
+            if [[ "$input_str" == "ready" ]]; then
+                break
+            fi
+            echo "Type 'ready' to continue."
+        done
+        log "Resuming build..."
+    fi
+
+    # 3. Inject into build
+    if [ -d "$local_pkgs_path" ] && [ -n "$(ls -A "$local_pkgs_path")" ]; then
+        log "Injecting custom packages into build directory..."
+        # Copy to package/custom so OpenWrt picks them up
+        mkdir -p "${BUILD_DIR}/package/custom"
+        cp -r "$local_pkgs_path/." "${BUILD_DIR}/package/custom/"
+    fi
+}
+
 manage_git() {
     local repo_url=$1
     local target_dir=$2
@@ -488,6 +527,9 @@ log "Applying custom configurations (files & settings)..."
 # REPLACED old copy logic with new interactive function
 # manage_custom_files handles copying defaults, pausing for edits, and injecting
 manage_custom_files
+
+# Manage Custom Packages (Prompt user to add their own)
+manage_custom_packages
 
 # We still need configs, so we adapt the old logic for config files ONLY (not files dir)
 PREV_CONFIG="${CUSTOM_FILES_DIR}/WRX36/bin/extra/configs/.config"
