@@ -1,0 +1,81 @@
+#!/bin/sh
+
+# partial fix for ssl
+grep -q 'net.netfilter.nf_conntrack_tcp_no_window_check' </etc/sysctl.conf || echo 'net.netfilter.nf_conntrack_tcp_no_window_check=1' >>/etc/sysctl.conf
+
+# change root shell to bash
+sed -i -E s/'^(root:.*:\/bin\/)ash'/'\1bash'/ /etc/passwd
+
+if [ -f /etc/init.d/ksmbd ]; then
+   # setup SMBUSER for ksmbd
+   grep -q 'SMBUSER' </etc/group || echo 'SMBUSER:x:2468:SMBUSER' >>/etc/group
+   grep -q 'SMBUSER' </etc/shadow || echo 'SMBUSER:$5$CN2s9xwg8.EvN2Mp$ZZDnr1e/reUUai15L62aRCpLNRvts70dVwk.1UX2hB.:19818:0:99999:7:::' >>/etc/shadow
+   grep -q 'SMBUSER' </etc/passwd || echo 'SMBUSER:*:2468:2468:SMBUSER:/mnt:/bin/false' >>/etc/passwd
+
+   ksmbd.adduser -a SMBUSER -p SMBPASSWORD
+fi
+
+mkdir -p /var/lock
+
+# disable bridger
+if [ -f /etc/init.d/bridger ]; then
+   /etc/init.d/bridger disable
+   /etc/init.d/bridger stop
+fi
+
+# generate stuff for unbound
+if [ -f /etc/init.d/unbound ]; then
+   mkdir -p /etc/unbound
+   [ -f /etc/ssl/certs/ca-certificates.crt ] && ln /etc/ssl/certs/ca-certificates.crt /etc/unbound/ca-certificates.crt
+   unbound-anchor -a /etc/unbound/root.key
+   mkdir -p /var/lib/unbound
+   chown -R unbound:unbound /etc/unbound /var/lib/unbound
+   cp -p /etc/unbound/root.key /var/lib/unbound
+   unbound-control-setup -d /etc/unbound
+   chown -R unbound:unbound /etc/unbound /var/lib/unbound
+   uci set unbound.ub_main.unbound_control='2'
+   uci commit unbound
+   /etc/init.d/unbound restart
+fi
+
+# use chronyd
+if [ -f /etc/init.d/chronyd ]; then
+   /etc/init.d/sysntpd disable
+   /etc/init.d/sysntpd stop
+   chrony-hotplug
+   [ -f /etc/crontabs/root ] || printf '' >>/etc/crontabs/root
+   grep -q 'chrony-hotplug' </etc/crontabs/root || echo '55 2,10,18 * * * chrony-hotplug' >> /etc/crontabs/root
+   chmod +x /etc/crontabs/root
+fi
+
+# disable irqbalance
+if [ -f /etc/init.d/irqbalance ]; then
+   uci set irqbalance.irqbalance.enabled='0'
+   uci commit irqbalance
+   /etc/init.d/irqbalance disable
+   /etc/init.d/irqbalance stop
+fi
+
+# fix insmod
+if [ -f /etc/init.d/qca-nss-mirred ]; then
+   grep -qF 'act_nssmirred.ko' </etc/init.d/qca-nss-mirred || sed -i s/'act_nssmirred'/'act_nssmirred.ko'/g /etc/init.d/qca-nss-mirred
+fi
+if [ -f /sbin/kmodloader ]; then
+   ln -sf /sbin/kmodloader /sbin/insmod
+fi	
+
+# improve irq distrubution
+if [ -f /etc/init.d/qca-nss-drv ]; then
+	sed -i s/"set_affinity 'ppdu-end-interrupts-mac1' 1 1/set_affinity 'ppdu-end-interrupts-mac1' 3 1/" /etc/init.d/qca-nss-drv
+	service qca-nss-drv restart
+fi
+
+# tweak ecm
+if [ -f /etc/init.d/qca-nss-ecm ]; then
+	uci set ecm.global.acceleration_engine='nss'
+	uci set ecm.general.disable_gro='1'
+	uci commit ecm
+	/etc/init.d/qca-nss-ecm restart
+fi
+
+exit 0

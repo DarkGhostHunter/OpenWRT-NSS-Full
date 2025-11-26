@@ -1,0 +1,90 @@
+#!/bin/sh
+
+{ [ -f /etc/config/firewall ] && sed s/'[[:space:]]'//g /etc/config/firewall | grep -qE '.+' && [ -f /rom/etc/config/firewall ] && sed s/'[[:space:]]'//g /rom/etc/config/firewall | grep -qE '.+' && ! [ "$(cat /etc/config/firewall)" = "$(cat /rom/etc/config/firewall)" ]; } || {
+
+touch /etc/config/firewall
+
+uci batch <<'EOF'
+delete firewall.@defaults[0]
+add firewall defaults
+set firewall.@defaults[0]=defaults
+set firewall.@defaults[0].input='REJECT'
+set firewall.@defaults[0].output='ACCEPT'
+set firewall.@defaults[0].forward='REJECT'
+set firewall.@defaults[0].syn_flood='1'
+
+delete firewall.@zone[0]
+add firewall zone
+set firewall.@zone[0]=zone
+set firewall.@zone[0].name='lan'
+add_list firewall.@zone[0].network='lan'
+set firewall.@zone[0].input='ACCEPT'
+set firewall.@zone[0].output='ACCEPT'
+set firewall.@zone[0].forward='ACCEPT'
+delete firewall.@forwarding[0]
+add firewall forwarding
+set firewall.@forwarding[0]=forwarding
+set firewall.@forwarding[0].src='lan'
+set firewall.@forwarding[0].dest='wan'
+
+delete firewall.@zone[1]
+add firewall zone
+set firewall.@zone[1]=zone
+set firewall.@zone[1].name='IoT'
+set firewall.@zone[1].input='REJECT'
+set firewall.@zone[1].output='ACCEPT'
+set firewall.@zone[1].forward='REJECT'
+add_list firewall.@zone[1].network='IoT'
+delete firewall.@forwarding[1]
+add firewall forwarding
+set firewall.@forwarding[1]=forwarding
+set firewall.@forwarding[1].src='IoT'
+set firewall.@forwarding[1].dest='wan'
+
+delete firewall.@zone[2]
+add firewall zone
+set firewall.@zone[2]=zone
+set firewall.@zone[2].name='wan'
+add_list firewall.@zone[2].network='wan'
+add_list firewall.@zone[2].network='wan6'
+set firewall.@zone[2].input='REJECT'
+set firewall.@zone[2].output='ACCEPT'
+set firewall.@zone[2].forward='REJECT'
+set firewall.@zone[2].masq='1'
+set firewall.@zone[2].mtu_fix='1'
+
+delete firewall.adblock_IoT53
+set firewall.adblock_IoT53=redirect
+set firewall.adblock_IoT53.name='Adblock DNS (IoT, 53)'
+set firewall.adblock_IoT53.src='IoT'
+set firewall.adblock_IoT53.proto='tcp udp'
+set firewall.adblock_IoT53.src_dport='53'
+set firewall.adblock_IoT53.dest_port='53'
+set firewall.adblock_IoT53.target='DNAT'
+set firewall.adblock_IoT53.family='any'
+set firewall.adblock_IoT53.enabled='0'
+delete firewall.adblock_lan53
+set firewall.adblock_lan53=redirect
+set firewall.adblock_lan53.name='Adblock DNS (lan, 53)'
+set firewall.adblock_lan53.src='lan'
+set firewall.adblock_lan53.proto='tcp udp'
+set firewall.adblock_lan53.src_dport='53'
+set firewall.adblock_lan53.dest_port='53'
+set firewall.adblock_lan53.target='DNAT'
+set firewall.adblock_lan53.family='any'
+set firewall.adblock_lan53.enabled='0'
+
+delete firewall.@forwarding[2]
+add firewall forwarding
+set firewall.@forwarding[2]=forwarding
+set firewall.@forwarding[2].src='lan'
+set firewall.@forwarding[2].dest='IoT'
+
+delete firewall.qcanssecm
+set firewall.qcanssecm=include
+set firewall.qcanssecm.type='script'
+set firewall.qcanssecm.path='/etc/firewall.d/qca-nss-ecm'
+EOF
+uci commit firewall
+}
+exit 0

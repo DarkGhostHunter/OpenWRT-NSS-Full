@@ -1,0 +1,15 @@
+#!/bin/sh
+
+# Ensure the script exits cleanly so UCI marks it as "applied"
+# before we trigger the reboot.
+
+# Sync filesystems to be safe
+sync
+
+# Just reboot safely
+logger -p notice -t luci-defaults "Luci defaults done"
+
+# Schedule reboot in background to allow this script to exit 0
+{ sleep 5; reboot; } &
+
+exit 0
