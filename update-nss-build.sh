@@ -1,738 +1,660 @@
-#!/bin/bash
-# =========================================================================
-# OpenWRT NSS Build Script (Unattended Mode)
-#
-# LOGIC FLOW:
-# 1. Define Reusable Helpers & Variables
-# 2. Configuration Phase (Ask all questions now)
-# 3. Execution Phase (Run without interruption)
-# =========================================================================
+#!/usr/bin/env bash
 
-# --- Safety Settings ---
-set -e          # Exit immediately on error
-set -o pipefail # Fail if any command in a pipe fails
+# ==============================================================================
+# OpenWRT Custom Build Script
+# Based on: jkool702/openwrt-custom-builds
+# Firmware Source: AgustinLorenzo/openwrt
+# ==============================================================================
 
-# --- Global Variables ---
-# Define the base directory as the current working directory
+set -e  # Exit immediately if a command exits with a non-zero status
+
+# ==============================================================================
+# CONFIGURATION & DEFAULTS
+# ==============================================================================
+
+# Directory definitions
 BASE_DIR="$(pwd)"
+WORK_DIR="${BASE_DIR}/workdir"
+BUILD_DIR="${WORK_DIR}/openwrt"
+CUSTOM_FILES_DIR="${WORK_DIR}/custom_files"
+FANTASTIC_PACKAGES_DIR="${BUILD_DIR}/package/fantastic_packages"
 
-LOG_FILE=""
-BUILD_SUCCESSFUL=false
-CCACHE_DIR="$BASE_DIR/.ccache"
-PACKAGE_CACHE_DIR="$BASE_DIR/package_cache"
-FIRMWARE_DIR="$BASE_DIR/nss-base/bin/targets/qualcommax/ipq807x"
-BUILD_DIR_PATH="$BASE_DIR/nss-base/build_dir"
-TMPFS_MOUNTED=false
+# Repository URLs
+REPO_FIRMWARE="https://github.com/AgustinLorenzo/openwrt.git"
+BRANCH_FIRMWARE="main_nss"
+REPO_CUSTOM="https://github.com/jkool702/openwrt-custom-builds.git"
+REPO_FANTASTIC="https://github.com/fantastic-packages/packages.git"
 
-# Options imported from environment (if any)
-prev_files_dir_path="${prev_files_dir_path:-}"
-prev_diff_config_path="${prev_diff_config_path:-}"
-prev_kernel_config_path="${prev_kernel_config_path:-}"
-prev_full_config_path="${prev_full_config_path:-}"
+# Tmpfs Settings
+RAM_THRESHOLD_GB=60
+TMPFS_SIZE="52g"
 
-# =========================================================================
-# === 1. REUSABLE HELPER FUNCTIONS ===
-# =========================================================================
+# Build Settings (Populated by prompts)
+MAKE_JOBS=""
+VERBOSE_BUILD=false
+RUN_MENUCONFIG=false # Set to true to force menuconfig in unattended mode, or use prompts
+UPDATE_CUSTOM_FILES=true
+UPDATE_FIRMWARE=true
+UPDATE_FANTASTIC_PACKAGES=true
 
-prompt_user_input() {
-    local message="$1"
-    local timeout="$2"
-    local default_choice="$3"
-    local choice=""
+# ==============================================================================
+# VISUAL HELPER FUNCTIONS
+# ==============================================================================
 
-    echo -n "$message (auto-$default_choice in ${timeout}s): " >&2
-
-    if read -r -t "$timeout" choice; then
-        echo "" >&2
-    else
-        echo "" >&2
-        echo "Timeout reached, defaulting to ${default_choice^^}" >&2
-        choice="$default_choice"
-    fi
-    echo "$choice"
+log() {
+    # Changed to BLUE as requested
+    echo -e "\n\033[1;34m[BUILD INFO] $1\033[0m"
 }
 
-generate_error_log() {
-    local log_file="$1"
-    if [ -n "$log_file" ] && [ -f "$log_file" ]; then
-        local error_log="${log_file%.txt}_errors.txt"
-        {
-            echo "=========================================="
-            echo "OpenWRT Build - Errors and Warnings"
-            echo "Date: $(date)"
-            echo "=========================================="
-        } > "$error_log"
-        # shellcheck disable=SC2126 # grep | grep is clearer here than complex regex
-        grep -n -iE "(error|command not found|fatal|failed|cannot|unable to)" "$log_file" | grep -vi "warning" >> "$error_log" 2>/dev/null || true
-        echo "✓ Filtered log created: $error_log"
-    fi
+warn() {
+    echo -e "\n\033[1;33m[BUILD WARN] $1\033[0m"
 }
 
-# --- Loading Animation Function ---
-show_loading_animation() {
+error() {
+    echo -e "\n\033[1;31m[BUILD ERROR] $1\033[0m"
+    exit 1
+}
+
+spinner() {
     local pid=$1
-    local log_file=$2
-    local delay=0.15
+    local delay=0.1
     local spinstr='|/-\'
-    local temp
-    
-    # Hide cursor (if supported)
-    tput civis 2>/dev/null || true
-    
-    echo "" # Start on new line
-    
-    while kill -0 "$pid" 2>/dev/null; do
+    while ps -p "$pid" > /dev/null; do
         local temp=${spinstr#?}
-        local spinchar=${spinstr%"$temp"}
-        local spinstr=$temp$spinchar
-        
-        # Get the last line of the log to show current activity
-        # We cut it to 70 chars to prevent line wrapping messiness
-        local current_task=$(tail -n 1 "$log_file" 2>/dev/null | tr -cd '[:print:]' | cut -c1-70)
-        
-        if [ -z "$current_task" ]; then current_task="Initializing..."; fi
-        
-        # \r moves cursor to start of line, \033[K clears the rest of the line
-        printf "\r [%c] Building: %-70s" "$spinchar" "$current_task"
-        
-        sleep "$delay"
+        printf " [%c]  " "$spinstr"
+        local spinstr=$temp${spinstr%"$temp"}
+        sleep $delay
+        printf "\b\b\b\b\b\b"
     done
+    printf "    \b\b\b\b"
+}
+
+# ==============================================================================
+# CORE FUNCTIONS
+# ==============================================================================
+
+check_debian() {
+    log "Checking OS..."
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        if [[ "$ID" != "debian" && "$ID_LIKE" != "debian" && "$ID" != "ubuntu" ]]; then
+            error "This script is intended for Debian/Ubuntu systems. Detected: $ID"
+        fi
+    else
+        error "Cannot detect OS. /etc/os-release missing."
+    fi
+}
+
+install_dependencies() {
+    log "Installing/Checking dependencies and ccache..."
     
-    # Restore cursor
-    tput cnorm 2>/dev/null || true
-    echo "" # Final newline
-}
+    local SUDO=""
+    if [ "$EUID" -ne 0 ]; then SUDO="sudo"; fi
 
-clone_or_update_repo() {
-    local repo_url="$1"
-    local target_dir="$2"
-    local branch="$3"
-
-    echo "Processing $target_dir..."
-    if [ -d "$target_dir" ]; then
-        if pushd "$target_dir" > /dev/null; then
-            if [ -d ".git" ]; then
-                git fetch origin
-                git reset --hard origin/"$branch"
-                git pull
-            else
-                echo "⚠️  Directory exists but is not a git repository."
-            fi
-            popd > /dev/null || return 1
-        else
-            echo "❌ ERROR: Failed to change directory to $target_dir"
-            exit 1
-        fi
-    else
-        git clone --single-branch --no-tags --recurse-submodules --depth 1 --branch "$branch" "$repo_url" "$target_dir"
-    fi
-}
-
-find_latest_artifact_name() {
-    local pattern="$1"
-    local base_url="https://downloads.openwrt.org/snapshots/targets/qualcommax/ipq807x"
-    # shellcheck disable=SC2086 # Pattern needs to expand
-    curl -sL "$base_url/" | grep -oE "href=\"(${pattern})\"" | sed -E 's/href="([^"]+)"/\1/' | head -n 1
-}
-
-download_prebuilt_artifact() {
-    local pattern="$1"
-    local expected_dir="$2"
-    local base_url="https://downloads.openwrt.org/snapshots/targets/qualcommax/ipq807x"
-    local file_name="$pattern"
-
-    if [[ "$pattern" == *"*"* ]]; then
-        file_name=$(find_latest_artifact_name "${pattern}")
-        [ -z "$file_name" ] && return 1
-    fi
-
-    if [ -d "$expected_dir" ] || [ -f "$file_name" ]; then
-        echo "✓ $(basename "$file_name") present"
-        return 0
-    fi
-
-    echo "Downloading $file_name..."
-    if wget -q --show-progress "$base_url/$file_name" -O "$file_name"; then
-        if [[ "$file_name" == *.tar.zst ]]; then
-            tar --zstd -xf "$file_name"
-            if [[ "$file_name" == llvm-bpf-* ]] && [ -n "$expected_dir" ]; then
-                local extracted_dir
-                extracted_dir=$(find . -maxdepth 1 -type d -name "llvm-bpf-*" | head -n1)
-                
-                if [ -n "$extracted_dir" ]; then
-                    # Fix: If expected_dir exists, mv puts extracted_dir INSIDE it, causing errors.
-                    # We must remove the existing directory to ensure a clean rename.
-                    if [ -d "$expected_dir" ]; then 
-                        rm -rf "$expected_dir"
-                    fi
-                    mv "$extracted_dir" "$expected_dir"
-                fi
-            fi
-            rm -f "$file_name"
-        fi
-    else
-        rm -f "$file_name"
-        return 1
-    fi
-}
-
-cleanup_on_exit() {
-    local exit_code=$?
-    # Ensure cursor is restored if script is interrupted
-    tput cnorm 2>/dev/null || true
-    if [ -n "$LOG_FILE" ] && [ -f "$LOG_FILE" ]; then
-        generate_error_log "$LOG_FILE"
-    fi
-    exit $exit_code
-}
-
-cleanup_on_failure() {
-    # shellcheck disable=SC2181 # Explicit check logic preferred here
-    if [ "$?" -ne 0 ] && [ "$BUILD_SUCCESSFUL" = false ]; then
-        echo ""
-        echo "❌ BUILD FAILED!"
-        if [ -n "$LOG_FILE" ] && [ -f "$LOG_FILE" ]; then
-             echo "--- Last 20 lines of build log ---"
-             tail -n 20 "$LOG_FILE"
-             echo "----------------------------------"
-        fi
-        echo "Caching current state..."
-        mkdir -p "$PACKAGE_CACHE_DIR"
-        if [ -d "dl" ]; then
-            tar -I "zstd -T0" -cf "$PACKAGE_CACHE_DIR/dl_cache.tar.zst" dl 2>/dev/null || true
-        fi
-    fi
-}
-
-trap cleanup_on_exit EXIT
-trap cleanup_on_failure ERR
-
-
-# =========================================================================
-# === 2. CONFIGURATION PHASE (INTERACTIVE) ===
-# =========================================================================
-
-echo "════════════════════════════════════════════════════════════════════════════════════"
-echo "   OPENWRT BUILD CONFIGURATION"
-echo "   All questions are asked now. The rest of the process is automated."
-echo "   Base Directory: $BASE_DIR"
-echo "════════════════════════════════════════════════════════════════════════════════════"
-echo ""
-
-# A. Previous Build Check
-CONF_CLEAN_BUILD=false
-if [ -f "$BASE_DIR/.build_in_progress" ] && [ -d "$BASE_DIR/nss-base" ]; then
-    echo "⚠️  PREVIOUS BUILD DETECTED"
-    CHOICE=$(prompt_user_input "Continue previous build? [Y/n]" 10 "y")
-    if [[ "${CHOICE,,}" == "n" || "${CHOICE,,}" == "no" ]]; then
-        CONF_CLEAN_BUILD=true
-    fi
-else
-    CONF_CLEAN_BUILD=true
-fi
-
-if [ "$CONF_CLEAN_BUILD" = true ]; then
-
-    # B. Ccache
-    CONF_INSTALL_CCACHE=false
-    if ! command -v ccache &> /dev/null; then
-        CHOICE=$(prompt_user_input "Install ccache (compiler cache)? [Y/n]" 10 "y")
-        [[ "${CHOICE,,}" == "y" ]] && CONF_INSTALL_CCACHE=true
-    fi
-
-    # C. Tmpfs (RAM Build)
-    CONF_USE_TMPFS=false
-    CONF_TMPFS_SIZE="52G"
-    if [ -f /run/.containerenv ] || [ -n "$DISTROBOX_ENTER_PATH" ] || [ -n "$TOOLBOX_PATH" ]; then
-        if ! mount | grep -q "on ${BUILD_DIR_PATH} type tmpfs"; then
-            CHOICE=$(prompt_user_input "Enable RAM-based builds (tmpfs)? [Y/n]" 10 "n")
-            if [[ "${CHOICE,,}" != "n" && "${CHOICE,,}" != "no" ]]; then
-                CONF_USE_TMPFS=true
-                echo "Select size:"
-                echo "  1) 52GB (default)"
-                echo "  2) 64GB"
-                echo "  3) Custom"
-                TMP_OPT=$(prompt_user_input "Choice [1/2/3]" 10 "1")
-                case "$TMP_OPT" in
-                    2) CONF_TMPFS_SIZE="64G" ;;
-                    3)
-                        read -r -p "Enter size (e.g. 72G): " CUSTOM
-                        [[ "$CUSTOM" =~ ^[0-9]+[GgMm]$ ]] && CONF_TMPFS_SIZE="${CUSTOM^^}"
-                        ;;
-                esac
-            fi
-        fi
-    fi
-
-    # D. Modules
-    CONF_BUILD_MODULES=false
-    CHOICE=$(prompt_user_input "Build all optional kernel modules? [y/N]" 10 "n")
-    [[ "${CHOICE,,}" == "y" ]] && CONF_BUILD_MODULES=true
-
-    # E. Custom Defaults
-    CONF_APPLY_DEFAULTS=false
-    if [ -d "$BASE_DIR/config_defaults" ] && [ "$(ls -A "$BASE_DIR/config_defaults" 2>/dev/null)" ]; then
-        CHOICE=$(prompt_user_input "Apply custom config defaults from ./config_defaults? [Y/n]" 10 "y")
-        [[ "${CHOICE,,}" == "y" ]] && CONF_APPLY_DEFAULTS=true
-    fi
-
-    # F. Menuconfig
-    CONF_RUN_MENUCONFIG=false
-    CHOICE=$(prompt_user_input "Open interactive Menuconfig? [Y/n]" 10 "y")
-    [[ "${CHOICE,,}" == "y" ]] && CONF_RUN_MENUCONFIG=true
-fi
-
-# G. Build Options (Jobs & Verbosity)
-echo ""
-echo "Build Options:"
-
-# 1. Thread Count Calculation
-TOTAL_CORES=$(nproc 2>/dev/null || echo 1)
-MAX_JOBS=$((TOTAL_CORES + 2))
-BALANCED_JOBS=$((TOTAL_CORES * 3 / 4))
-[ "$BALANCED_JOBS" -lt 1 ] && BALANCED_JOBS=1
-
-echo "System has $TOTAL_CORES cores available."
-echo "Select thread usage:"
-echo "  1) Max Performance ($MAX_JOBS threads) - Default"
-echo "  2) Usable System   ($BALANCED_JOBS threads) - Keeps system responsive"
-echo "  3) Single Thread   (1 thread)   - For debugging compilation failures"
-
-JOB_CHOICE=$(prompt_user_input "Select option [1-3]" 15 "1")
-case "$JOB_CHOICE" in
-    2) CONF_JOBS="$BALANCED_JOBS" ;;
-    3) CONF_JOBS="1" ;;
-    *) CONF_JOBS="$MAX_JOBS" ;;
-esac
-
-# 2. Verbosity
-echo ""
-echo "Select log verbosity:"
-echo "  1) Animated (Default) - Shows progress spinner + log summary"
-echo "  2) Verbose  (Debug)   - Shows full scrolling text"
-VERB_CHOICE=$(prompt_user_input "Select option [1-2]" 10 "1")
-
-CONF_VERBOSE_FLAG=""
-CONF_LOG_FILE=""
-
-if [ "$VERB_CHOICE" == "2" ]; then
-    CONF_VERBOSE_FLAG="V=s"
-    CONF_LOG_FILE="$BASE_DIR/build_verbose.txt"
-else
-    # Default/Animated mode: We still need a log file to show progress
-    CONF_LOG_FILE="$BASE_DIR/build.log"
-fi
-
-# H. Post-Build Actions
-CONF_UNMOUNT_TMPFS=false
-if [ "$CONF_USE_TMPFS" = true ] || mount | grep -q "on ${BUILD_DIR_PATH} type tmpfs"; then
-    CHOICE=$(prompt_user_input "Automatically unmount tmpfs (free RAM) after success? [y/N]" 9999 "n")
-    [[ "${CHOICE,,}" == "y" ]] && CONF_UNMOUNT_TMPFS=true
-fi
-
-echo ""
-echo "✓ Configuration complete. Starting build process..."
-echo "════════════════════════════════════════════════════════════════════════════════════"
-sleep 2
-
-
-# =========================================================================
-# === 3. EXECUTION PHASE (UNATTENDED) ===
-# =========================================================================
-
-# --- Step 0: Initial Cleanup ---
-if [ "$CONF_CLEAN_BUILD" = true ]; then
-    rm -f "$BASE_DIR/.build_in_progress"
-    if [ -d "$BASE_DIR/nss-base" ]; then
-        cd "$BASE_DIR/nss-base" && make clean 2>/dev/null || true
-    fi
-fi
-
-if [ "$CONF_CLEAN_BUILD" = true ]; then
-
-    # --- Step 1: System Prep ---
-    if [ "$CONF_INSTALL_CCACHE" = true ]; then
-        echo "[1/12] Installing ccache..."
-        sudo apt-get update && sudo apt-get install -y ccache
-    fi
-
-    if [ "$CONF_USE_TMPFS" = true ]; then
-        echo "[1.5/12] Mounting tmpfs ($CONF_TMPFS_SIZE)..."
-        mkdir -p "$BUILD_DIR_PATH"
-        if sudo mount -t tmpfs -o size="$CONF_TMPFS_SIZE" tmpfs "$BUILD_DIR_PATH"; then
-            TMPFS_MOUNTED=true
-            echo "$BUILD_DIR_PATH" > "$BASE_DIR/.tmpfs_mount_requested"
-            echo "$CONF_TMPFS_SIZE" >> "$BASE_DIR/.tmpfs_mount_requested"
-        else
-            echo "❌ Failed to mount tmpfs. Proceeding on disk."
-        fi
-    fi
-
-    # --- Step 2: Dependencies ---
-    echo "[2/12] Verifying build dependencies..."
-    sudo apt-get update
-    sudo apt-get install -y build-essential clang flex bison g++ gawk \
+    $SUDO apt-get update
+    $SUDO apt-get install -y build-essential clang flex bison g++ gawk \
         gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev \
         python3-setuptools rsync swig unzip zlib1g-dev file wget \
         python3 python3-dev python3-pip libpython3-dev curl libelf-dev \
         xsltproc libxml-parser-perl patch diffutils findutils quilt zstd \
-        libprotobuf-c1 libprotobuf-c-dev protobuf-c-compiler
+        libprotobuf-c1 libprotobuf-c-dev protobuf-c-compiler ccache
+}
 
-    # --- Step 3: Repositories ---
-    echo "[3/12] Setting up repositories..."
-    cd "$BASE_DIR" || exit 1
-
-    clone_or_update_repo https://github.com/AgustinLorenzo/openwrt.git nss-base main_nss
-    clone_or_update_repo https://github.com/jkool702/openwrt-custom-builds.git quality-base main-NSS
-
-    mkdir -p quality-config
-    cp quality-base/WRX36/bin/targets/qualcommax/ipq807x/config.buildinfo quality-config/
-    [ -f "quality-base/WRX36/bin/targets/qualcommax/ipq807x/feeds.buildinfo" ] && cp quality-base/WRX36/bin/targets/qualcommax/ipq807x/feeds.buildinfo quality-config/
-
-    # --- Step 4: Feeds ---
-    echo "[4/12] Updating feeds..."
-    cd "$BASE_DIR/nss-base" || exit 1
+setup_tmpfs() {
+    log "Checking memory for Tmpfs..."
     
-    # FIX: Use custom feeds configuration if available in the quality-base repo
-    # This ensures we use the exact package revisions intended by the custom build
-    if [ -f "../quality-base/WRX36/feeds.conf" ]; then
-        echo "   -> Using custom feeds.conf from repository..."
-        cp "../quality-base/WRX36/feeds.conf" ./feeds.conf
-    elif [ -f "../quality-base/WRX36/feeds.conf.default" ]; then
-        echo "   -> Using custom feeds.conf.default from repository..."
-        cp "../quality-base/WRX36/feeds.conf.default" ./feeds.conf.default
+    local total_mem_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+    local total_mem_gb=$((total_mem_kb / 1024 / 1024))
+
+    log "Total Memory detected: ${total_mem_gb} GB"
+
+    if [ "$total_mem_gb" -ge "$RAM_THRESHOLD_GB" ]; then
+        if mount | grep -q "${WORK_DIR}"; then
+            log "Tmpfs already mounted at ${WORK_DIR}."
+        else
+            log "Memory >= ${RAM_THRESHOLD_GB}GB. Mounting ${TMPFS_SIZE} tmpfs to ${WORK_DIR}..."
+            mkdir -p "${WORK_DIR}"
+            
+            local SUDO=""
+            if [ "$EUID" -ne 0 ]; then SUDO="sudo"; fi
+            
+            $SUDO mount -t tmpfs -o size=${TMPFS_SIZE} tmpfs "${WORK_DIR}"
+            $SUDO chown "$(id -u):$(id -g)" "${WORK_DIR}"
+        fi
     else
-        echo "   -> No custom feeds found, using defaults."
+        log "Memory < ${RAM_THRESHOLD_GB}GB. Skipping Tmpfs, building on disk."
+        mkdir -p "${WORK_DIR}"
     fi
+}
 
-    clone_or_update_repo https://github.com/fantastic-packages/packages package/fantastic_packages snapshot
-    ./scripts/feeds update -a && ./scripts/feeds install -a
+configure_ccache() {
+    log "Configuring ccache..."
+    mkdir -p "${HOME}/.ccache"
+    export CCACHE_DIR="${HOME}/.ccache"
+    if ! command -v ccache &> /dev/null; then
+        error "ccache not found despite installation attempt."
+    fi
+}
 
-    # --- Step 5: Config Import ---
-    echo "[5/12] Importing configurations..."
+configure_build_settings() {
+    log "User Configuration"
     
-    # FIX: Apply custom files (config overrides) from quality-base repo
-    # JKool702's repo likely has a 'files' folder inside the WRX36 directory
-    if [ -d "../quality-base/WRX36/files" ]; then
-        echo "   -> Copying custom config files from repository..."
-        mkdir -p files
-        cp -r "../quality-base/WRX36/files/"* files/
-    fi
-
-    if [[ -d "${prev_files_dir_path}" ]]; then cp -r "${prev_files_dir_path}" ./; fi
-    if [[ -f "${prev_kernel_config_path}" ]]; then cp "${prev_kernel_config_path}" .config.kernel.prev; else touch .config.kernel.prev; fi
-
-    CONFIG_APPLIED=false
-    if [[ -f "${prev_diff_config_path}" ]]; then
-        cp "${prev_diff_config_path}" .config
-        CONFIG_APPLIED=true
-    elif [[ -f "${prev_full_config_path}" ]]; then
-        cp "${prev_full_config_path}" .config
-        CONFIG_APPLIED=true
-    fi
-    if [ "$CONFIG_APPLIED" = false ]; then
-        cp "$BASE_DIR/quality-config/config.buildinfo" .config
-    fi
-
-    # --- Step 6: Critical Configs ---
-    echo "[6/12] Applying NSS critical settings..."
-    make defconfig
-    {
-        echo "CONFIG_TARGET_qualcommax=y"
-        echo "CONFIG_TARGET_qualcommax_ipq807x=y"
-        echo "CONFIG_TARGET_qualcommax_ipq807x_DEVICE_dynalink_dl-wrx36=y"
-        echo "CONFIG_TARGET_ROOTFS_SQUASHFS=y"
-        echo "CONFIG_TARGET_SQUASHFS_BLOCK_SIZE=256"
-        echo "CONFIG_TARGET_ROOTFS_TARGZ=n"
-        echo "CONFIG_TARGET_ROOTFS_EXT4FS=n"
-        echo "CONFIG_TARGET_KERNEL_PARTSIZE=16"
-        echo "CONFIG_TARGET_ROOTFS_PARTSIZE=112"
-        
-        # --- Flash Wear Reduction & Optimization ---
-        # 1. Enable ZRAM (Compressed RAM) to avoid swapping to Flash
-        echo "CONFIG_PACKAGE_zram-swap=y"
-        echo "CONFIG_PACKAGE_kmod-zram=y"
-        # 2. Force ZSTD compression for UBIFS (Better compression = Less writes)
-        echo "CONFIG_TARGET_UBIFS_COMPRESSION_ZSTD=y"
-        
-        echo "# CONFIG_PACKAGE_kmod-ath11k-ahb is not set"
-        echo "# CONFIG_PACKAGE_kmod-ath11k-pci is not set"
-    } >> .config
-    make defconfig
-
-    # --- Step 7: Fixes & Tools ---
-    echo "[7/12] Applying fixes and downloading tools..."
+    # 1. CPU Threads
+    local cpu_threads=$(nproc)
+    echo "Detected CPU Threads: $cpu_threads"
+    echo "Select number of jobs for make:"
+    echo "1) All threads + 2 IO ($((cpu_threads + 2)))"
+    echo "2) 3/4 Threads ($((cpu_threads * 3 / 4)))"
+    echo "3) 1/2 Threads ($((cpu_threads / 2)))"
+    echo "4) Single Thread (1)"
     
-    if [ -f "include/cmake.mk" ] && ! grep -q "CMAKE_POLICY_VERSION_MINIMUM=3.5" include/cmake.mk; then
-        sed -i '/^cmake_bool[[:space:]]*=/a CMAKE_OPTIONS += -DCMAKE_POLICY_VERSION_MINIMUM=3.5' include/cmake.mk
-    fi
+    read -p "Enter choice [1-4]: " job_choice
+    case $job_choice in
+        1) MAKE_JOBS=$((cpu_threads + 2)) ;;
+        2) MAKE_JOBS=$((cpu_threads * 3 / 4)) ;;
+        3) MAKE_JOBS=$((cpu_threads / 2)) ;;
+        4) MAKE_JOBS=1 ;;
+        *) MAKE_JOBS=$((cpu_threads + 2)); echo "Invalid choice, defaulting to max." ;;
+    esac
 
-    # INLINED: apply_zstd_fix
-    if [ -f "tools/zstd/Makefile" ] && ! grep -q "HOST_CFLAGS += -fPIC" "tools/zstd/Makefile"; then
-        echo "HOST_CFLAGS += -fPIC" >> "tools/zstd/Makefile"
-    fi
-
-    download_prebuilt_artifact "llvm-bpf-.*\.tar\.zst" "llvm-bpf"
-    download_prebuilt_artifact "kernel-debug.tar.zst" "kernel-debug.tar.zst"
-
-    # --- Step 8: Package Logic ---
-    echo "[8/12] Processing packages..."
-    cd "$BASE_DIR" || exit 1
-    grep "^CONFIG_PACKAGE_.*=y" quality-config/config.buildinfo | sed 's/CONFIG_PACKAGE_//g;s/=y//g' > quality-config/package-list.txt
-
-    if [ "$CONF_BUILD_MODULES" = true ]; then
-        grep "^CONFIG_PACKAGE_.*=m" quality-config/config.buildinfo | sed 's/CONFIG_PACKAGE_//g;s/=m//g' > quality-config/module-list.txt || touch quality-config/module-list.txt
-        cat quality-config/module-list.txt >> quality-config/package-list.txt
-    fi
-
-    cd "$BASE_DIR/nss-base" || exit 1
-    # Filtering Logic (Problematic packages)
-    PROBLEMATIC_PACKAGES=("luci-app-pcap-dnsproxy" "pcap-dnsproxy" "luci-app-shadowsocks-rust" "shadowsocks-rust-config" "shadowsocks-rust-ssservice" "luci-app-einat" "einat-ebpf" "luci-app-alwaysonline" "alwaysonline" "uci-alwaysonline" "natmapt" "rgmac" "fakehttp" "bandix" "natter" "natter-ddns-script-cloudflare" "stuntman-client" "stuntman-server" "stuntman-testcode" "apk-mbedtls" "apk-openssl")
-
-    filtered_package_list=$(mktemp)
-    while IFS= read -r PACKAGE; do
-        [ -z "$PACKAGE" ] && continue
-        skip=0 # Removed LOCAL
-        for prob in "${PROBLEMATIC_PACKAGES[@]}"; do [[ "$PACKAGE" == "$prob" ]] && skip=1 && break; done
-        [[ $skip -eq 0 ]] && echo "$PACKAGE" >> "$filtered_package_list"
-    done < "$BASE_DIR/quality-config/package-list.txt"
-
-    while IFS= read -r PACKAGE; do echo "CONFIG_PACKAGE_$PACKAGE=y" >> .config; done < "$filtered_package_list"
-    rm -f "$filtered_package_list"
-
-    # --- Step 9: Final Config ---
-    echo "[9/12] Finalizing Configuration..."
-    if [ "$CONF_APPLY_DEFAULTS" = true ]; then
-        mkdir -p files/etc/config
-        cp "$BASE_DIR/config_defaults"/* "files/etc/config/"
-    fi
-
-    if [ "$CONF_RUN_MENUCONFIG" = true ]; then
-        echo "Starting menuconfig (Waiting for user input)..."
-        make menuconfig
-    fi
-
-    # Save diff
-    mkdir -p "$BASE_DIR/config_defaults"
-    ./scripts/diffconfig.sh > "$BASE_DIR/config_defaults/final.config.diff" || true
-
-    # --- Step 10: Download ---
-    echo "[10/12] Downloading Sources..."
-    make download V=s || { echo "❌ ERROR: Download failed."; exit 1; }
-
-    # --- Step 11: Kernel Prep (Initial) ---
-    echo "[11/12] Kernel Preparation..."
-    make target/linux/clean
-    make -j"$(nproc)" V=sc target/linux/prepare 2>&1 | tee -a "$BASE_DIR/kernel_prep.log"
-
-fi # End of Clean Build Steps
-
-# --- CRITICAL FIXES (Runs on Clean Build AND Resume) ---
-cd "$BASE_DIR/nss-base" || exit 1
-
-# 1. FIX: Binutils 2.44 libsframe (Dependecy Graph Patch)
-if [ -f "toolchain/binutils/Makefile" ]; then
-    echo "🔧 Checking binutils configuration..."
-    
-    # We must fix the broken dependency graph. The standard build allows
-    # libbfd to build before libsframe is ready in parallel builds.
-    # We fix this by injecting 'all-bfd: all-libsframe' into Makefile.in
-    
-    # Check if we need to apply the fix
-    NEED_FIX=true
-    if grep -q "all-bfd: all-libsframe" "build_dir/toolchain"*"/binutils-2.44/Makefile.in" 2>/dev/null; then
-        NEED_FIX=false
-        echo "   ✓ Dependency patch already applied."
-    fi
-
-    if [ "$NEED_FIX" = true ]; then
-        echo "   -> Preparing binutils source to apply dependency patch..."
-        # 1. Clean old artifacts to ensure a fresh start
-        find build_dir -type d -name "binutils-2.44" -exec rm -rf {} + 2>/dev/null || true
-        find staging_dir -name "libbfd.la" -delete 2>/dev/null || true
-        find staging_dir -name "libsframe.la" -delete 2>/dev/null || true
-        make toolchain/binutils/clean 2>/dev/null || true
-        
-        # 2. Unpack sources (Prepare)
-        echo "   -> Unpacking binutils..."
-        make toolchain/binutils/prepare V=s
-        
-        # 3. Locate and Patch Makefile.in
-        # We find the Makefile.in inside the unpacked build directory
-        # Since there might be multiple, we target the top-level one.
-        BN_BUILD_DIR=$(find build_dir/toolchain* -maxdepth 1 -name "binutils-*" -type d | head -n1)
-        
-        if [ -n "$BN_BUILD_DIR" ] && [ -f "$BN_BUILD_DIR/Makefile.in" ]; then
-            echo "   -> Patching $BN_BUILD_DIR/Makefile.in with explicit dependency..."
-            # Append the rule to the end of the file. Safe and effective.
-            echo "" >> "$BN_BUILD_DIR/Makefile.in"
-            echo "# FIX: Force libsframe to build before bfd to prevent race conditions" >> "$BN_BUILD_DIR/Makefile.in"
-            echo "all-bfd: all-libsframe" >> "$BN_BUILD_DIR/Makefile.in"
-            echo "   ✓ Patch applied."
-        else
-            echo "   ⚠️ Error: Could not find binutils build directory to patch."
+    # 2. Verbosity
+    read -p "Enable verbose output (V=s)? [y/N]: " verbose_choice
+    if [[ "$verbose_choice" =~ ^[Yy]$ ]]; then
+        VERBOSE_BUILD=true
+        if [ "$MAKE_JOBS" -gt 1 ]; then
+            warn "You have selected Multithreaded ($MAKE_JOBS jobs) AND Verbose output."
+            echo "The logs may be interleaved and difficult to read in case of error."
+            echo "Press ENTER to continue or Ctrl+C to abort."
+            read
         fi
+    else
+        VERBOSE_BUILD=false
+    fi
+
+    # 3. Repository Management
+    log "Checking Repositories..."
+
+    # Check Custom Files Repo
+    if [ -d "$CUSTOM_FILES_DIR" ]; then
+        # If directory exists, check if it is a git repo
+        if [ -d "$CUSTOM_FILES_DIR/.git" ]; then
+            read -p "Custom Files Repo detected at ${CUSTOM_FILES_DIR}. Update it? [y/N]: " update_custom
+            if [[ "$update_custom" =~ ^[Yy]$ ]]; then
+                UPDATE_CUSTOM_FILES=true
+            else
+                UPDATE_CUSTOM_FILES=false
+            fi
+        else
+            # Directory exists but NOT a git repo -> Personalized Build Detected
+            echo -e "\n\033[1;31m[ERROR] Directory '${CUSTOM_FILES_DIR}' exists but is not a git repository.\033[0m"
+            echo -e "\033[1;33mPERSONALIZED BUILD DETECTED.\033[0m"
+            echo "This script is designed for automated Git-based builds."
+            echo "Please build manually or refer to the OpenWRT official documentation:"
+            echo "https://openwrt.org/docs/guide-developer/build-system/use-buildsystem"
+            exit 1
+        fi
+    else
+        # Doesn't exist, will be cloned automatically
+        UPDATE_CUSTOM_FILES=true 
+    fi
+
+    # Check Firmware Repo
+    if [ -d "$BUILD_DIR" ]; then
+        if [ -d "$BUILD_DIR/.git" ]; then
+            read -p "Firmware Repo detected at ${BUILD_DIR}. Update it? [y/N]: " update_fw
+            if [[ "$update_fw" =~ ^[Yy]$ ]]; then
+                UPDATE_FIRMWARE=true
+            else
+                UPDATE_FIRMWARE=false
+            fi
+        else
+            echo -e "\n\033[1;31m[ERROR] Directory '${BUILD_DIR}' exists but is not a git repository.\033[0m"
+            echo -e "\033[1;33mPERSONALIZED BUILD DETECTED.\033[0m"
+            echo "This script is designed for automated Git-based builds."
+            echo "Please build manually or refer to the OpenWRT official documentation:"
+            echo "https://openwrt.org/docs/guide-developer/build-system/use-buildsystem"
+            exit 1
+        fi
+    else
+        UPDATE_FIRMWARE=true
+    fi
+
+    # Check Fantastic Packages Repo (openwrt/packages extra)
+    if [ -d "$FANTASTIC_PACKAGES_DIR" ]; then
+        if [ -d "$FANTASTIC_PACKAGES_DIR/.git" ]; then
+            read -p "Fantastic Packages Repo detected at ${FANTASTIC_PACKAGES_DIR}. Update it? [y/N]: " update_pkg
+            if [[ "$update_pkg" =~ ^[Yy]$ ]]; then
+                UPDATE_FANTASTIC_PACKAGES=true
+            else
+                UPDATE_FANTASTIC_PACKAGES=false
+            fi
+        else
+            echo -e "\n\033[1;31m[ERROR] Directory '${FANTASTIC_PACKAGES_DIR}' exists but is not a git repository.\033[0m"
+            echo -e "\033[1;33mPERSONALIZED BUILD DETECTED.\033[0m"
+            echo "This script is designed for automated Git-based builds."
+            echo "Please build manually or refer to the OpenWRT official documentation:"
+            echo "https://openwrt.org/docs/guide-developer/build-system/use-buildsystem"
+            exit 1
+        fi
+    else
+        # Does not exist (or parent doesn't exist yet), will be cloned automatically
+        UPDATE_FANTASTIC_PACKAGES=true
+    fi
+}
+
+manage_custom_files() {
+    local local_files_path="${BASE_DIR}/files"
+    # Path to jkool702's files in the cloned repo
+    local ref_files_path="${CUSTOM_FILES_DIR}/WRX36/bin/extra/files"
+
+    log "Managing Custom Configuration Files..."
+
+    # 1. Populate if empty/missing
+    if [ ! -d "$local_files_path" ] || [ -z "$(ls -A "$local_files_path")" ]; then
+        if [ -d "$ref_files_path" ]; then
+            log "Local files folder empty or missing. Copying defaults from jkool702..."
+            mkdir -p "$local_files_path"
+            # Use cp -rT to copy contents, including hidden files
+            cp -r "$ref_files_path/." "$local_files_path/"
+        else
+            warn "Reference files not found at $ref_files_path. Starting with empty files directory."
+            mkdir -p "$local_files_path"
+        fi
+    else
+        log "Local files directory exists and is not empty. Keeping existing files."
+    fi
+
+    # 2. Prompt for editing
+    echo -e "\n\033[1;33m[USER ACTION REQUIRED]\033[0m"
+    read -p "Do you want to pause to edit/review custom files in '${local_files_path}'? [y/N]: " edit_choice
+    if [[ "$edit_choice" =~ ^[Yy]$ ]]; then
+        echo -e "\n\033[1;32mScript PAUSED.\033[0m"
+        echo "You can now edit the files in: ${local_files_path}"
+        echo "Tip: Scripts in 'etc/uci-defaults/' run once on first boot to set configuration."
+        echo "If you need significant time, you can press Ctrl+C to stop, finish editing, and restart the script."
+        echo -e "Type \033[1;37mready\033[0m and press Enter when you are done."
         
-        # 4. Compile with FULL PARALLELISM
-        # Now that the dependency graph is correct, make will handle the order.
-        echo "   -> Compiling binutils (Multi-Threaded -j$(nproc))..."
-        make toolchain/binutils/compile -j$(nproc) V=s
+        while true; do
+            read -p "> " input_str
+            if [[ "$input_str" == "ready" ]]; then
+                break
+            fi
+            echo "Type 'ready' to continue."
+        done
+        log "Resuming build..."
+    fi
+
+    # 3. Inject into build
+    # The build system looks for a directory named 'files' in the root of the build directory
+    if [ -d "$local_files_path" ] && [ -n "$(ls -A "$local_files_path")" ]; then
+        log "Injecting custom files into build directory..."
+        # Use cp -r to copy the directory contents into the target
+        # We copy to ${BUILD_DIR}/files because that's where OpenWRT looks for overlays
+        mkdir -p "${BUILD_DIR}/files"
+        cp -r "$local_files_path/." "${BUILD_DIR}/files/"
+    fi
+}
+
+manage_git() {
+    local repo_url=$1
+    local target_dir=$2
+    local branch=$3
+    local should_update=$4
+    local target_branch="${branch:-main}"
+
+    if [ -d "${target_dir}/.git" ]; then
+        if [ "$should_update" = true ]; then
+            log "Updating existing repo at ${target_dir}..."
+            cd "${target_dir}"
+            
+            # Fix: Fetch the specific branch mapping explicitly.
+            # This solves "unknown revision" if the repo was previously cloned with --single-branch
+            log "Fetching origin/${target_branch}..."
+            git fetch origin "${target_branch}:refs/remotes/origin/${target_branch}" --depth 1 || {
+                warn "Fetch specific branch failed, trying standard fetch..."
+                git fetch origin
+            }
+            
+            git reset --hard "origin/${target_branch}"
+        else
+            log "Skipping update for ${target_dir} (User Request)."
+        fi
+    else
+        log "Cloning ${repo_url} to ${target_dir}..."
+        git clone --depth 1 --branch "${target_branch}" --single-branch --recurse-submodules \
+            "${repo_url}" "${target_dir}"
+    fi
+}
+
+safe_make() {
+    local target_desc="$1"
+    shift
+    local make_args=("$@")
+    
+    # Define log files in BASE_DIR (not WORK_DIR)
+    local log_file="${BASE_DIR}/build_${target_desc// /_}.log"
+    local err_file="${BASE_DIR}/build_${target_desc// /_}_errors.log"
+    
+    log "Running Make: ${target_desc} (-j${MAKE_JOBS})..."
+    echo "Full log: $log_file"
+    
+    local status=0
+    
+    # Construct the command
+    local cmd="make -j${MAKE_JOBS} ${make_args[*]}"
+    if [ "$VERBOSE_BUILD" = true ]; then
+        # Add V=s if verbose requested
+        cmd="$cmd V=s"
+        # Verbose: Pipe to tee to show on screen AND write to log_file
+        # We use a subshell with pipefail to capture the make exit code, not tee's
+        # Uses || status=$? to catch failure code without triggering set -e exit
+        (
+            set -o pipefail
+            eval "$cmd" 2>&1 | tee "$log_file"
+        ) || status=$?
+    else
+        # Non-Verbose: Redirect stdout AND stderr to log_file
+        eval "$cmd" > "$log_file" 2>&1 &
+        local pid=$!
+        spinner $pid
+        # Wait returns the exit code of the process. 
+        # Uses || status=$? to catch failure code without triggering set -e exit
+        wait $pid || status=$?
+    fi
+    
+    # Always generate the filtered error file from the main log
+    if [ -f "$log_file" ]; then
+        # Filter logic: specific compiler errors, generic failure keywords, and "missing"
+        # Added "missing" to regex and increased tail to 200
+        grep -iE ": error:|: fatal error:|: undefined reference to|command not found|failed|cannot|unable to|missing" "$log_file" | tail -n 200 > "$err_file" || true
+    fi
+
+    if [ $status -ne 0 ]; then
+        # Output failing step in RED (Top)
+        echo -e "\n\033[1;31m[FAIL] Step '${target_desc}' failed! (Exit Code: $status)\033[0m"
+        
+        if [ -s "$err_file" ]; then
+            echo -e "\n\033[1;33m--- DETECTED ERRORS (Last 200 lines) ---\033[0m"
+            cat "$err_file"
+            echo -e "\033[1;33m----------------------------------------\033[0m"
+        else
+            echo "No specific error patterns matched in filter. Checking tail of full log:"
+            tail -n 200 "$log_file"
+        fi
+
+        # Output failing step in RED (Repeated at Bottom)
+        echo -e "\n\033[1;31m[FAIL] Step '${target_desc}' failed! (Exit Code: $status)\033[0m"
+
+        # Suggest viewing the full log with tips
+        echo -e "\n\033[1;37mTo view the complete log, run:\033[0m"
+        echo -e "less +G \"$log_file\""
+        echo -e "\n\033[1;30mTips for less:\033[0m"
+        echo -e "  Type \033[1;37m/Error 1\033[0m to search for common make errors."
+        echo -e "  Press \033[1;37mn\033[0m (next) or \033[1;37mN\033[0m (previous) to navigate matches."
+        echo -e "  Press \033[1;37mq\033[0m to quit."
+        
+        exit $status
+    else
+        # Success message in GREEN
+        echo -e "\033[1;32m[SUCCESS] Step '${target_desc}' completed successfully.\033[0m"
+    fi
+}
+
+# ==============================================================================
+# MAIN EXECUTION
+# ==============================================================================
+
+# 1. System Checks
+check_debian
+install_dependencies
+
+# 2. Filesystem Setup
+setup_tmpfs
+configure_ccache
+
+# 3. Config Prompts (Moved after tmpfs setup to detect directories correctly)
+configure_build_settings
+
+# 4. Fetch Sources
+# Fix: Correct branch for Custom Files is main-NSS per user instruction
+manage_git "$REPO_CUSTOM" "$CUSTOM_FILES_DIR" "main-NSS" "$UPDATE_CUSTOM_FILES"
+manage_git "$REPO_FIRMWARE" "$BUILD_DIR" "$BRANCH_FIRMWARE" "$UPDATE_FIRMWARE"
+# Changed fantastic-packages to use 'snapshot' branch
+manage_git "$REPO_FANTASTIC" "$FANTASTIC_PACKAGES_DIR" "snapshot" "$UPDATE_FANTASTIC_PACKAGES"
+
+# 5. Prepare Build Environment
+cd "${BUILD_DIR}"
+
+log "Updating feeds..."
+./scripts/feeds update -a
+./scripts/feeds install -a
+
+log "Second feed install pass..."
+./scripts/feeds install -a
+
+# 5.1 Fix Recursive Dependency in Packages
+# This MUST happen before 'make defconfig' or 'make menuconfig'
+log "Checking for recursive dependency in tar package..."
+# Find the tar package makefile (usually in feeds/packages/utils/tar/Makefile)
+TAR_MAKEFILE=$(find package -name Makefile | xargs grep -l "menuconfig PACKAGE_tar" | head -n 1)
+
+if [ -n "$TAR_MAKEFILE" ]; then
+    log "Found tar makefile at: $TAR_MAKEFILE"
+    # Remove the circular dependency line "depends on !(PACKAGE_TAR_XZ) || PACKAGE_xz-utils"
+    # The logic is flawed because PACKAGE_TAR_XZ is a child of PACKAGE_tar
+    if grep -q "depends on !(PACKAGE_TAR_XZ)" "$TAR_MAKEFILE"; then
+        log "Patching recursive dependency in $TAR_MAKEFILE..."
+        sed -i '/depends on !(PACKAGE_TAR_XZ)/d' "$TAR_MAKEFILE"
+    else
+        log "Tar makefile seems already patched or different version."
     fi
 else
-    echo "⚠️ Warning: toolchain/binutils/Makefile not found. Skipping fix."
+    warn "Could not locate tar package makefile. If build fails with recursive dependency, check feeds."
 fi
 
-# 2. FIX: Kernel Makefile Corruption (Recipe before first target)
-# This loop finds ALL linux build directories (active or not) and sanitizes them
-echo "🔧 Checking for Kernel Makefile corruption..."
-find build_dir/target* -path "*/linux-*" -name "Makefile" 2>/dev/null | grep "/arch/arm64/Makefile" | while read -r K_MAKEFILE; do
-    if [ -f "$K_MAKEFILE" ]; then
-        echo "   -> Scanning $K_MAKEFILE..."
-        
-        # FIX A: "Nuclear Option" Rebuild of corrupted lines
-        # We look for lines starting with whitespace that are trying to set asm-arch or KBUILD_CFLAGS
-        # and rewrite them cleanly.
-        
-        if grep -q "^[[:space:]]\+\(asm-arch\|KBUILD_CFLAGS\)" "$K_MAKEFILE"; then
-             echo "      ⚠️ Detected indented variables. Applying Nuclear Fix..."
-             
-             # 1. Delete existing (corrupt) lines for these variables
-             sed -i '/^[[:space:]]*asm-arch/d' "$K_MAKEFILE"
-             sed -i '/^[[:space:]]*KBUILD_CFLAGS.*cortex-a53/d' "$K_MAKEFILE"
-             
-             # 2. Append clean versions to the end of the file
-             echo "" >> "$K_MAKEFILE"
-             echo "# Auto-injected by NSS build script" >> "$K_MAKEFILE"
-             echo "asm-arch := armv8-a+crc+crypto+rdma" >> "$K_MAKEFILE"
-             echo "KBUILD_CFLAGS += -Wa,-mcpu=cortex-a53+crc+crypto+rdma" >> "$K_MAKEFILE"
-             
-             echo "      ✓ Makefile rewritten and sanitized."
-        else
-             # Only inject if missing entirely (safe inject)
-             if ! grep -q "armv8-a+crc+crypto+rdma" "$K_MAKEFILE"; then
-                 echo "" >> "$K_MAKEFILE"
-                 echo "asm-arch := armv8-a+crc+crypto+rdma" >> "$K_MAKEFILE"
-                 echo "KBUILD_CFLAGS += -Wa,-mcpu=cortex-a53+crc+crypto+rdma" >> "$K_MAKEFILE"
-                 echo "      ✓ Optimizations injected."
-             fi
-        fi
+# 5.2 Fix Aria2 build errors with LTO/MOLD
+# Correct approach: Insert flags at the TOP of the Makefile so they are read before 'include package.mk'
+log "Patching Aria2 to disable LTO/Mold (Insertion Method)..."
+ARIA2_MAKEFILE=$(find package -name Makefile | grep "aria2/Makefile" | head -n 1)
+
+if [ -n "$ARIA2_MAKEFILE" ]; then
+    log "Found Aria2 makefile at: $ARIA2_MAKEFILE"
+    
+    # We must insert PKG_BUILD_FLAGS:=no-lto near the top, after the first include
+    # This ensures OpenWRT sees it before generating build targets.
+    # We also explicitly force BFD linker in TARGET_LDFLAGS.
+    if ! grep -q "PKG_BUILD_FLAGS:=no-lto" "$ARIA2_MAKEFILE"; then
+        sed -i '/include $(TOPDIR)\/rules.mk/a PKG_BUILD_FLAGS:=no-lto\nTARGET_LDFLAGS += -fuse-ld=bfd' "$ARIA2_MAKEFILE"
+        log "Inserted PKG_BUILD_FLAGS:=no-lto and BFD linker enforcement."
+    else
+        log "Aria2 Makefile already contains no-lto flag."
     fi
-done
 
-
-# --- Step 12: Build ---
-echo "[12/12] Starting Final Compilation..."
-
-# Determine Build Variables based on Phase 1 Selection
-JOBS="$CONF_JOBS"
-VERBOSE_FLAG="$CONF_VERBOSE_FLAG"
-LOG_FILE="$CONF_LOG_FILE"
-
-# Check for tmpfs mount request file from Phase 1 if we resumed
-if [ -f "$BASE_DIR/.tmpfs_mount_requested" ] && [ "$TMPFS_MOUNTED" != true ] && ! mount | grep -q "on ${BUILD_DIR_PATH} type tmpfs"; then
-    REQ_SIZE=$(sed -n '2p' "$BASE_DIR/.tmpfs_mount_requested")
-    mkdir -p "$BUILD_DIR_PATH"
-    sudo mount -t tmpfs -o size="$REQ_SIZE" tmpfs "$BUILD_DIR_PATH"
-    TMPFS_MOUNTED=true
+    # CRITICAL: Clean Aria2 to ensure new flags are picked up!
+    log "Cleaning Aria2 package to enforce configuration changes..."
+    make "${ARIA2_MAKEFILE%/Makefile}/clean"
+    
+    # NEW: Deep clean by removing the build directory manually
+    # This addresses the persistence of the 'undefined symbol' error by forcing a fresh compile.
+    log "Deep cleaning Aria2 build artifacts..."
+    find build_dir -name "aria2-*" -type d -exec rm -rf {} + 2>/dev/null || true
+else
+    warn "Could not locate Aria2 makefile. Build might fail if LTO is enabled."
 fi
 
-# INLINED: restore_package_cache
-if [ -d "$PACKAGE_CACHE_DIR" ]; then
-    echo "📦 Restoring cached packages..."
-    cd "$BASE_DIR/nss-base" || exit 1
-    if [ -f "$PACKAGE_CACHE_DIR/staging_dir_cache.tar.zst" ]; then
-        tar -I zstd -xf "$PACKAGE_CACHE_DIR/staging_dir_cache.tar.zst" -C . 2>/dev/null || true
-    fi
-    if [ -f "$PACKAGE_CACHE_DIR/dl_cache.tar.zst" ]; then
-        tar -I zstd -xf "$PACKAGE_CACHE_DIR/dl_cache.tar.zst" -C . 2>/dev/null || true
-    fi
-    echo "✓ Cache restored"
+# 6. Apply Customizations & Configs
+log "Applying custom configurations (files & settings)..."
+
+# REPLACED old copy logic with new interactive function
+# manage_custom_files handles copying defaults, pausing for edits, and injecting
+manage_custom_files
+
+# We still need configs, so we adapt the old logic for config files ONLY (not files dir)
+PREV_CONFIG="${CUSTOM_FILES_DIR}/WRX36/bin/extra/configs/.config"
+PREV_DIFF="${CUSTOM_FILES_DIR}/WRX36/bin/extra/configs/.config.diff"
+
+if [ -f "${PREV_DIFF}" ]; then
+    log "Applying .config.diff..."
+    cp "${PREV_DIFF}" .config
+    make defconfig
+elif [ -f "${PREV_CONFIG}" ]; then
+    log "Applying full .config..."
+    cp "${PREV_CONFIG}" .config
+else
+    log "No previous config found. Using default."
+    make defconfig
 fi
 
-touch "$BASE_DIR/.build_in_progress"
+# 7. Apply Config Modifications (Packages & CCACHE)
+log "Injecting Custom Packages and CCACHE..."
 
-# INLINED: run_build_step "all"
-cd "$BASE_DIR/nss-base" || exit 1
+# Helper to add package
+add_package() {
+    local pkg=$1
+    echo "CONFIG_PACKAGE_${pkg}=y" >> .config
+}
 
+sed -i '/CONFIG_CCACHE/d' .config
+echo "CONFIG_CCACHE=y" >> .config
+
+# Fix: Manually link ccache to staging_dir to prevent ninja/build errors
+# The build system expects it in staging_dir/host/bin
 if command -v ccache &> /dev/null; then
-    export PATH="/usr/lib/ccache:$PATH"
-    export CCACHE_DIR="$BASE_DIR/.ccache"
-    mkdir -p "$CCACHE_DIR"
-    ccache -M 10G
+    mkdir -p staging_dir/host/bin
+    ln -sf "$(command -v ccache)" staging_dir/host/bin/ccache
+    log "Linked system ccache to staging_dir/host/bin/ccache"
 fi
 
-if [ "$JOBS" -eq 0 ]; then
-    parallel_jobs=$(($(nproc) + 2))
+# Add requested packages
+add_package "aria2"           # Core download utility (backend)
+add_package "luci-app-aria2"  # LuCI configuration interface for Aria2
+add_package "ariang"          # Web frontend for Aria2
+add_package "luci-app-ariang" # LuCI integration for AriaNg
+add_package "btop"
+add_package "htop" # Fallback/Alternative
+add_package "nano" # Basic editor
+add_package "e2fsprogs" # fsck for ext2/3/4
+add_package "dosfstools" # fsck for FAT
+add_package "f2fs-tools" # fsck for F2FS
+
+# Disable Vim to prevent build errors due to environment changes
+log "Disabling Vim to avoid configuration errors..."
+sed -i '/CONFIG_PACKAGE_vim/d' .config
+sed -i '/CONFIG_PACKAGE_vim-full/d' .config
+sed -i '/CONFIG_PACKAGE_vim-tiny/d' .config
+echo "# CONFIG_PACKAGE_vim is not set" >> .config
+echo "# CONFIG_PACKAGE_vim-full is not set" >> .config
+echo "# CONFIG_PACKAGE_vim-tiny is not set" >> .config
+
+# Disable sstp-client and its dependents to resolve file conflict with ppp
+log "Disabling sstp-client and dependents to resolve file conflict with ppp..."
+# We must disable the protocol handler (luci-proto-sstp) because it selects sstp-client
+sed -i '/CONFIG_PACKAGE_luci-proto-sstp/d' .config
+sed -i '/CONFIG_PACKAGE_sstp-client/d' .config
+echo "# CONFIG_PACKAGE_luci-proto-sstp is not set" >> .config
+echo "# CONFIG_PACKAGE_sstp-client is not set" >> .config
+
+# Sync configuration to avoid "out of sync" warnings
+log "Syncing configuration..."
+make defconfig
+
+# 8. Menuconfig (Optional)
+if [ "$RUN_MENUCONFIG" = true ]; then
+    log "Entering Menuconfig..."
+    make menuconfig
+    ./scripts/diffconfig.sh > .config.diff
+fi
+
+# 9. Unattended Code Fixes
+log "Applying unattended code fixes..."
+if [ -f "include/cmake.mk" ] && ! grep -q "CMAKE_POLICY_VERSION_MINIMUM=3.5" include/cmake.mk; then
+    sed -i '/^cmake_bool[[:space:]]*=/a CMAKE_OPTIONS += -DCMAKE_POLICY_VERSION_MINIMUM=3.5' include/cmake.mk
+fi
+
+# 9.1 Fix: Patch ksmbd to remove system shares
+log "Patching ksmbd init script to remove internal system shares..."
+KSMBD_INIT=$(find package -name "ksmbd.init" 2>/dev/null | head -n 1)
+
+if [ -n "$KSMBD_INIT" ]; then
+    if grep -q "REMOVE SYSTEM SHARES" "$KSMBD_INIT"; then
+        log "ksmbd.init already patched."
+    else
+        # Create patch content in a temp file
+        cat << 'EOF' > ksmbd_fix.txt
+    # --- FIX: REMOVE SYSTEM SHARES ---
+    # Ensure the config file exists before editing
+    if [ -f /var/etc/ksmbd/ksmbd.conf ]; then
+        # Delete the [ubi0_2] block and lines following it
+        sed -i '/\[ubi0_2\]/,/^$/d' /var/etc/ksmbd/ksmbd.conf
+        
+        # Delete the [ubiblock0_1] block and lines following it
+        sed -i '/\[ubiblock0_1\]/,/^$/d' /var/etc/ksmbd/ksmbd.conf
+    fi
+    # ---------------------------------
+EOF
+        
+        # Insert using awk before procd_open_instance
+        awk 'NR==FNR{fix[n++]=$0; next} /procd_open_instance/{for(i=0;i<n;i++) print fix[i]} 1' ksmbd_fix.txt "$KSMBD_INIT" > "$KSMBD_INIT.tmp" && mv "$KSMBD_INIT.tmp" "$KSMBD_INIT"
+        rm ksmbd_fix.txt
+        log "Applied ksmbd patch to $KSMBD_INIT"
+    fi
 else
-    parallel_jobs="$JOBS"
+    warn "Could not find ksmbd.init to patch. System shares fix not applied."
 fi
 
-# Build array for make arguments to avoid eval (SC2294)
-MAKE_ARGS=(-j"$parallel_jobs")
+# 10. Disable LTO and MOLD Globally (Stability Fix)
+# The user experienced persistent linker errors (ltrans/mold) with Aria2.
+# Disabling these features globally is the most robust fix.
+log "Disabling Global LTO and Mold support for build stability..."
+sed -i '/CONFIG_USE_MOLD/d' .config
+echo "# CONFIG_USE_MOLD is not set" >> .config
+sed -i '/CONFIG_USE_LTO/d' .config
+echo "# CONFIG_USE_LTO is not set" >> .config
 
-# Use output-sync for parallel builds to keep logs readable (grouped by target)
-if [ "$parallel_jobs" -gt 1 ]; then
-    MAKE_ARGS+=("--output-sync=recurse")
-fi
+# Force config update
+make defconfig
 
-if [ -n "$VERBOSE_FLAG" ]; then
-    MAKE_ARGS+=("$VERBOSE_FLAG")
-fi
+# 11. Clean Aria2 (Remove old LTO artifacts)
+# This addresses the user query: "Should be this fixed by removing Aria2 compiled artifacts?"
+# YES. We must ensure no LTO objects remain.
+log "Cleaning Aria2 to remove any stale LTO artifacts..."
+# We use the package name 'aria2' which OpenWRT finds automatically
+make package/aria2/clean || warn "Aria2 clean step returned non-zero (might not be built yet), continuing..."
 
-echo "Executing: make ${MAKE_ARGS[*]}"
+# Also deep clean directory if it exists
+find build_dir -name "aria2-*" -type d -exec rm -rf {} + 2>/dev/null || true
 
-# Handle logging and animation
-if [ -n "$VERBOSE_FLAG" ]; then
-    # Verbose Mode: Show everything to stdout + file
-    make "${MAKE_ARGS[@]}" 2>&1 | tee -a "$LOG_FILE"
+# 12. Download Sources
+safe_make "Download Sources" download
+
+# 13. Kernel Tweaks
+log "Pre-preparing kernel..."
+safe_make "Prepare Kernel Config" prepare_kernel_conf
+
+KERNEL_BUILD_DIR=$(find build_dir/target* -maxdepth 2 -name "linux-*" -type d | head -n 1)
+
+if [ -z "$KERNEL_BUILD_DIR" ]; then
+    warn "Could not determine Kernel Build Dir. Skipping specific Kernel Makefile patches."
 else
-    # Default/Animated Mode: Hide raw output, show spinner + log file tail
-    echo "   (Detailed build logs are being saved to $LOG_FILE)"
-    make "${MAKE_ARGS[@]}" > "$LOG_FILE" 2>&1 &
-    make_pid=$!
-    
-    show_loading_animation "$make_pid" "$LOG_FILE"
-    
-    wait "$make_pid"
-    
-    # Wait returns exit code of last command. Check if make failed.
-    # Note: wait alone returns 0 if pid is gone, but we want the exit code.
-    # Bash 'wait' usually returns the exit code of the job.
-    if [ $? -ne 0 ]; then
-        echo "❌ Build process exited with error."
-        # The trap will handle the cache, but we print log tail here
-        if [ -f "$LOG_FILE" ]; then
-            echo "--- Last 20 lines of build log ---"
-            tail -n 20 "$LOG_FILE"
-            echo "----------------------------------"
+    log "Patching Kernel Makefile in $KERNEL_BUILD_DIR..."
+    ARM64_MAKEFILE="${KERNEL_BUILD_DIR}/arch/arm64/Makefile"
+    if [ -f "$ARM64_MAKEFILE" ]; then
+        sed -i 's/^asm-arch := .*/asm-arch := armv8-a+crc+crypto+rdma/' "$ARM64_MAKEFILE"
+        if ! grep -q "cortex-a53+crc+crypto+rdma" "$ARM64_MAKEFILE"; then
+             echo "KBUILD_AFLAGS += -Wa,-mcpu=cortex-a53+crc+crypto+rdma" >> "$ARM64_MAKEFILE"
+             echo "KBUILD_CFLAGS += -Wa,-mcpu=cortex-a53+crc+crypto+rdma" >> "$ARM64_MAKEFILE"
         fi
-        exit 1
     fi
 fi
 
-# Cache success
-if command -v ccache &> /dev/null && [ -d "$CCACHE_DIR" ]; then
-    tar -I "zstd -T0" -cf "$BASE_DIR/ccache.tar.zst" -C "$BASE_DIR" .ccache 2>/dev/null || true
-fi
+# 14. Final Build
+log "Starting Final Build..."
 
-BUILD_SUCCESSFUL=true
-echo ""
-echo "=== BUILD SUCCESSFUL ==="
+# Re-run prepare
+safe_make "Prepare Build" prepare
 
-if [ -d "$FIRMWARE_DIR" ]; then
-    echo "✓ Firmware images generated:"
-    # shellcheck disable=SC2012 # ls -lh | awk is used for pretty printing, safe here
-    ls -lh "$FIRMWARE_DIR"/*.bin "$FIRMWARE_DIR"/*.ubi 2>/dev/null | awk '{print "  " $9 " (" $5 ")"}'
-else
-    echo "❌ ERROR: No firmware binaries found!"
-    BUILD_SUCCESSFUL=false
-fi
+# Main Compile
+# Removed IGNORE_ERRORS=1 and -k to ensure we fail fast and see the actual error.
+safe_make "Final Firmware Build"
 
-if [ "$CONF_UNMOUNT_TMPFS" = true ]; then
-    sudo umount "$BUILD_DIR_PATH" 2>/dev/null && rm -f "$BASE_DIR/.tmpfs_mount_requested"
-    echo "✓ tmpfs unmounted"
-fi
-
-if [ "$BUILD_SUCCESSFUL" = true ]; then
-    rm -f "$BASE_DIR/.build_in_progress"
-fi
+log "Build Complete. Images should be in ${BUILD_DIR}/bin/targets/"
