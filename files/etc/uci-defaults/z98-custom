@@ -59,14 +59,6 @@ if [ -f /etc/init.d/chronyd ]; then
    chmod +x /etc/crontabs/root
 fi
 
-# disable irqbalance
-if [ -f /etc/init.d/irqbalance ]; then
-   uci set irqbalance.irqbalance.enabled='0'
-   uci commit irqbalance
-   /etc/init.d/irqbalance disable
-   /etc/init.d/irqbalance stop
-fi
-
 # fix insmod
 if [ -f /etc/init.d/qca-nss-mirred ]; then
    grep -qF 'act_nssmirred.ko' </etc/init.d/qca-nss-mirred || sed -i s/'act_nssmirred'/'act_nssmirred.ko'/g /etc/init.d/qca-nss-mirred
