@@ -44,6 +44,11 @@ In cause you didn't check the source repositories, here is a gist of what this s
 ### Package Management
 * **Sources:** Integrates `fantastic-packages` and custom configs from `jkool702`.
 * **Exclusions:** Automatically filters out known unstable packages (e.g., `shadowsocks-rust`, `pcap-dnsproxy`, `stuntman`) to prevent build errors.
+* **DHCP Static Leases**: Added a small package that allows to change DHCP static leases, absent when using `odhcpd` instead of `dnsmasq`.
+
+### Default Config
+* **User config and files**: Integrates the `files` directory to add custom configuration defaults.
+* **My use case**: These files are for my use case, but also fixes some `unbound` weird defaults, a boot loop, and insane usteer configs.
 
 ### Automation
 * **Workflow:** Separation of interactive configuration and unattended execution phases.
@@ -64,3 +69,9 @@ Check the error logs, upload it to an AI and check what fix returns.
 * **The AI says I should edit something inside the `feeds` directory**
 
 Do not. Asks for a non-invansive fix. Post it here or make it a PR to integrate it to the script.
+
+* **Why `unbound` uses around 250MB of RAM?**
+
+Because Adblock loads its source list of banned ip into unbound, hence why it consumes so much RAM. Still, around 50% of RAM left for anything.
+
+* **
