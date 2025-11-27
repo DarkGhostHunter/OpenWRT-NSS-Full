@@ -34,7 +34,7 @@ set wireless.radio1.diversity='1'
 set wireless.radio1.disabled='0'
 set wireless.radio1.noscan='1'
 
-delete wireless.default_radio0
+delete wireless.lan_radio0
 set wireless.lan_radio0=wifi-iface
 set wireless.lan_radio0.device='radio0'
 set wireless.lan_radio0.mode='ap'
@@ -58,7 +58,7 @@ set wireless.lan_radio0.proxy_arp='1'
 set wireless.lan_radio0.multicast_to_unicast_all='0'
 set wireless.lan_radio0.key='password'
 
-delete wireless.default_radio1
+delete wireless.lan_radio1
 set wireless.lan_radio1=wifi-iface
 set wireless.lan_radio1.device='radio1'
 set wireless.lan_radio1.mode='ap'
