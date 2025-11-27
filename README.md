@@ -31,7 +31,7 @@ In cause you didn't check the source repositories, here is a gist of what this s
 ### Firmware Configuration & Optimization
 * **Target:** Dynalink DL-WRX36 (Qualcomm IPQ807x) with **Cortex-A53** optimizations (CRC, Crypto, RDMA).
 * **Storage Layout:**
-    * **Partitions:** Kernel increased to **16MB**; RootFS reduced to **112MB**, just to avoid the internal NAND Flash wear.
+    * **Partitions:** Kernel increased to **16MB**; RootFS reduced to **112MB**, just to avoid the internal NAND Flash wear (leaving the other half, 128MB, unused).
     * **Filesystem:** SquashFS (256 block size) enabled; Ext4 and TarGz disabled.
     * **Flash Protection:** Enables **ZRAM** (swap on compressed RAM) and forces **ZSTD compression** for UBIFS to minimize flash wear.
 * **NSS Support:** Builds from NSS-specific branches and explicitly disables standard `ath11k` drivers to avoid conflicts.
@@ -48,6 +48,7 @@ In cause you didn't check the source repositories, here is a gist of what this s
 ### Default Config
 * **User config and files**: Integrates the `files` directory to add custom configuration defaults.
 * **My use case**: These files are for my use case, but also fixes some `unbound` weird defaults, a boot loop, and insane usteer configs.
+* **Plex Server Panel**: Yep, added a LUCI panels to handle your Plex Media Server without _sshing_ to configure it.
 
 ### Automation
 * **Workflow:** Separation of interactive configuration and unattended execution phases.
@@ -101,6 +102,19 @@ cd openwrt-build
 The router will boot two times: once it applies the defaults it will boot again. Just wait patiently until 10.0.0.1 becomes availble.
 ---
 
+## After booting
+
+### 1. WiFi and Usteer
+
+You will probably want to change both your WiFi SSID on both antennas into something like "MyOffice". Every time you change them, you will have to get into usteer configuration and point these WiFi SSID to be _steered_. This way, your devices will roam between both antennas depending on signal quality.
+
+### 2. Speedtest your Gigabit Internet
+
+If you're a _heavy user_, you may want to run `speedtest_to_sqm`. It's a bash script that _should_ update SQM scripts depending on your connection download and upload speeds.
+
+You may [test your buffebloat here](https://www.waveform.com/tools/bufferbloat), and if you get C/D/F grades, you will need to set this through the script or manually. Also consider using this on low-speed connections, or if you always need minimum latency at all times (while downloads/uploads take a small penalty).
+
+---
 
 ## FAQ
 
