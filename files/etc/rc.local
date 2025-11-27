@@ -1,2 +1,9 @@
+#!/bin/sh
+
+# Create the RRD directory for statistics to prevent collectd errors on boot
+mkdir -p /tmp/rrd
+
+# Run chrony hotplug to sync time immediately if network is up
 chrony-hotplug
-wifi up
+
+exit 0
