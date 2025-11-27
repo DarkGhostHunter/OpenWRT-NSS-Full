@@ -210,44 +210,8 @@ interactive_setup() {
         VERBOSE_BUILD=false
     fi
 
-    # 3. Prepare Custom Files (Config/Scripts)
-    # First, ensure we have the reference repo
-    log "Checking Custom Files Repository..."
-    manage_git "$REPO_CUSTOM" "$CUSTOM_FILES_DIR" "main-NSS" true
-
-    local local_files_path="${BASE_DIR}/files"
-    local ref_files_path="${CUSTOM_FILES_DIR}/WRX36/bin/extra/files"
-
-    # Populate local files if empty
-    if [ ! -d "$local_files_path" ] || [ -z "$(ls -A "$local_files_path")" ]; then
-        log "Populating '${local_files_path}' from reference repo..."
-        mkdir -p "$local_files_path"
-        if [ -d "$ref_files_path" ]; then
-            cp -r "$ref_files_path/." "$local_files_path/"
-            # 1. REMOVE lib/modules from the LOCAL copy immediately
-            if [ -d "$local_files_path/lib/modules" ]; then
-                log "Removing 'lib/modules' from local files to prevent boot issues..."
-                rm -rf "$local_files_path/lib/modules"
-            fi
-        else
-            warn "Reference files not found at $ref_files_path."
-        fi
-    fi
-
-    # Prompt for Review
-    echo -e "\n\033[1;33m[USER ACTION REQUIRED]\033[0m"
-    read -p "Do you want to pause to review/edit files in '${local_files_path}'? [y/N]: " review_files
-    if [[ "$review_files" =~ ^[Yy]$ ]]; then
-        echo -e "\n\033[1;32mScript PAUSED.\033[0m"
-        echo "You can now edit '${local_files_path}'."
-        echo "Note: 'lib/modules' has already been excluded."
-        echo "If you need more time, stop the script (Ctrl+C) and run it again later."
-        echo -e "Type \033[1;37mready\033[0m and press Enter to continue."
-        while true; do
-            read -p "> " input_str
-            if [[ "$input_str" == "ready" ]]; then break; fi
-        done
-    fi
+    # 3. Custom Files are now assumed to be in 'files/' directory. 
+    # No population or prompt logic here as requested.
 
     # 4. Prepare Custom Packages
     local local_pkgs_path="${BASE_DIR}/packages"
@@ -328,11 +292,53 @@ safe_make() {
     fi
 }
 
+manage_custom_files() {
+    local local_files_path="${BASE_DIR}/files"
+
+    log "Managing Custom Configuration Files..."
+
+    if [ -d "$local_files_path" ] && [ -n "$(ls -A "$local_files_path")" ]; then
+        log "Injecting custom files from '${local_files_path}' into firmware..."
+        
+        # Clean existing files in build dir (Start Fresh)
+        if [ -d "${BUILD_DIR}/files" ]; then
+            log "Cleaning existing firmware files directory..."
+            rm -rf "${BUILD_DIR}/files"
+        fi
+        mkdir -p "${BUILD_DIR}/files"
+        
+        # Copy contents
+        cp -r "$local_files_path/." "${BUILD_DIR}/files/"
+        
+        # SAFETY: Ensure lib/modules is NEVER included in the firmware
+        if [ -d "${BUILD_DIR}/files/lib/modules" ]; then
+            warn "Removing 'lib/modules' from firmware build tree (Safety Check)."
+            rm -rf "${BUILD_DIR}/files/lib/modules"
+        fi
+    else
+        log "No custom files found in '${local_files_path}'. Skipping injection."
+    fi
+}
+
+manage_custom_packages() {
+    local local_pkgs_path="${BASE_DIR}/packages"
+
+    log "Managing Custom Packages..."
+
+    # Inject into build
+    if [ -d "$local_pkgs_path" ] && [ -n "$(ls -A "$local_pkgs_path")" ]; then
+        log "Injecting custom packages into build directory..."
+        # Copy to package/custom so OpenWrt picks them up
+        mkdir -p "${BUILD_DIR}/package/custom"
+        cp -r "$local_pkgs_path/." "${BUILD_DIR}/package/custom/"
+    fi
+}
+
 # ==============================================================================
 # MAIN EXECUTION
 # ==============================================================================
 
-# 1. System & Dependency Checks
+# 1. System Checks
 check_debian
 install_dependencies
 
@@ -343,49 +349,34 @@ configure_ccache
 # 3. Interactive Setup (Prompts, Repo Updates, File Prep)
 interactive_setup
 
-# 4. Additional Sources (Inside Firmware Dir)
-# Fantastic packages (using snapshot branch)
+# 4. Fetch Sources
+# Configs still come from REPO_CUSTOM
+manage_git "$REPO_CUSTOM" "$CUSTOM_FILES_DIR" "main-NSS" true
+manage_git "$REPO_FIRMWARE" "$BUILD_DIR" "$BRANCH_FIRMWARE" true
+# Changed fantastic-packages to use 'snapshot' branch
 manage_git "$REPO_FANTASTIC" "$FANTASTIC_PACKAGES_DIR" "snapshot" true
 
 # 5. Prepare Build Environment
 cd "${BUILD_DIR}"
 
-log "Updating feeds..."
-./scripts/feeds update -a
-./scripts/feeds install -a
-./scripts/feeds install -a
+log "Managing Feeds..."
+if [ "$IS_ONLINE" = true ]; then
+    log "Online mode: Updating and installing feeds..."
+    ./scripts/feeds update -a
+    ./scripts/feeds install -a
+    ./scripts/feeds install -a
+else
+    log "Offline mode: Installing existing feeds (Skipping update)..."
+    ./scripts/feeds install -a
+fi
 
 # 5.1 Inject User Content (Files & Packages)
 # ------------------------------------------
-# Files: Clean build_dir/files, then Copy base_dir/files -> build_dir/files
-log "Injecting Custom Files into Firmware..."
-if [ -d "${BUILD_DIR}/files" ]; then
-    log "Cleaning existing firmware files directory..."
-    rm -rf "${BUILD_DIR}/files"
-fi
-
-local_files_path="${BASE_DIR}/files"
-if [ -d "$local_files_path" ] && [ -n "$(ls -A "$local_files_path")" ]; then
-    log "Copying user files from '${local_files_path}'..."
-    mkdir -p "${BUILD_DIR}/files"
-    cp -r "$local_files_path/." "${BUILD_DIR}/files/"
-    
-    # SAFETY: Double check removal of lib/modules inside the firmware build tree
-    if [ -d "${BUILD_DIR}/files/lib/modules" ]; then
-        warn "Removing 'lib/modules' from firmware build tree (Safety Check)."
-        rm -rf "${BUILD_DIR}/files/lib/modules"
-    fi
-else
-    log "No custom files to inject."
-fi
+# Simplified Files Workflow: Just inject if exists
+manage_custom_files
 
 # Packages: Inject base_dir/packages -> build_dir/package/custom
-log "Injecting Custom Packages..."
-local_pkgs_path="${BASE_DIR}/packages"
-if [ -d "$local_pkgs_path" ] && [ -n "$(ls -A "$local_pkgs_path")" ]; then
-    mkdir -p "${BUILD_DIR}/package/custom"
-    cp -r "$local_pkgs_path/." "${BUILD_DIR}/package/custom/"
-fi
+manage_custom_packages
 
 # 5.2 Fix Recursive Dependencies
 log "Checking for recursive dependency in tar package..."
@@ -440,6 +431,7 @@ echo "CONFIG_CCACHE=y" >> .config
 if command -v ccache &> /dev/null; then
     mkdir -p staging_dir/host/bin
     ln -sf "$(command -v ccache)" staging_dir/host/bin/ccache
+    log "Linked system ccache to staging_dir/host/bin/ccache"
 fi
 
 add_package "aria2"
@@ -467,6 +459,13 @@ sed -i '/CONFIG_PACKAGE_luci-proto-sstp/d' .config
 sed -i '/CONFIG_PACKAGE_sstp-client/d' .config
 echo "# CONFIG_PACKAGE_luci-proto-sstp is not set" >> .config
 echo "# CONFIG_PACKAGE_sstp-client is not set" >> .config
+
+# Disable Attended SysUpgrade and Package Sync to prevent system breakage
+log "Disabling potentially harmful LUCI apps (Attended Sysupgrade / Package Sync)..."
+sed -i '/CONFIG_PACKAGE_luci-app-attendedsysupgrade/d' .config
+sed -i '/CONFIG_PACKAGE_luci-app-packagesync/d' .config
+echo "# CONFIG_PACKAGE_luci-app-attendedsysupgrade is not set" >> .config
+echo "# CONFIG_PACKAGE_luci-app-packagesync is not set" >> .config
 
 log "Syncing configuration..."
 make defconfig
@@ -518,7 +517,11 @@ make package/aria2/clean || true
 find build_dir -name "aria2-*" -type d -exec rm -rf {} + 2>/dev/null || true
 
 # 12. Download Sources
-safe_make "Download Sources" download
+if [ "$IS_ONLINE" = true ]; then
+    safe_make "Download Sources" download
+else
+    log "Offline mode: Skipping download step (Assuming sources exist in dl/)..."
+fi
 
 # 13. Kernel Tweaks
 log "Pre-preparing kernel..."
