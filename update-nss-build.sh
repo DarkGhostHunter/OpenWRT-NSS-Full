@@ -29,20 +29,16 @@ REPO_FANTASTIC="https://github.com/fantastic-packages/packages.git"
 RAM_THRESHOLD_GB=60
 TMPFS_SIZE="52g"
 
-# Build Settings (Populated by prompts)
+# Build Settings (Defaults)
 MAKE_JOBS=""
 VERBOSE_BUILD=false
-RUN_MENUCONFIG=false # Set to true to force menuconfig in unattended mode, or use prompts
-UPDATE_CUSTOM_FILES=true
-UPDATE_FIRMWARE=true
-UPDATE_FANTASTIC_PACKAGES=true
+RUN_MENUCONFIG=false 
 
 # ==============================================================================
 # VISUAL HELPER FUNCTIONS
 # ==============================================================================
 
 log() {
-    # Changed to BLUE as requested
     echo -e "\n\033[1;34m[BUILD INFO] $1\033[0m"
 }
 
@@ -136,8 +132,51 @@ configure_ccache() {
     fi
 }
 
-configure_build_settings() {
-    log "User Configuration"
+manage_git() {
+    local repo_url=$1
+    local target_dir=$2
+    local branch=$3
+    local prompt_update=$4
+    local target_branch="${branch:-main}"
+    
+    local do_update=true
+
+    if [ -d "${target_dir}/.git" ]; then
+        if [ "$prompt_update" = true ]; then
+            read -p "Repo at ${target_dir} exists. Update it? [y/N]: " update_choice
+            if [[ ! "$update_choice" =~ ^[Yy]$ ]]; then
+                do_update=false
+            fi
+        fi
+
+        if [ "$do_update" = true ]; then
+            log "Updating existing repo at ${target_dir}..."
+            cd "${target_dir}"
+            log "Fetching origin/${target_branch}..."
+            git fetch origin "${target_branch}:refs/remotes/origin/${target_branch}" --depth 1 || {
+                warn "Fetch specific branch failed, trying standard fetch..."
+                git fetch origin
+            }
+            git reset --hard "origin/${target_branch}"
+        else
+            log "Skipping update for ${target_dir}."
+        fi
+    elif [ -d "${target_dir}" ]; then
+        # Directory exists but is NOT a git repo
+        error "Directory '${target_dir}' exists but is not a git repository. Personalized build detected/Invalid state. Please check documentation."
+    else
+        log "Cloning ${repo_url} to ${target_dir}..."
+        git clone --depth 1 --branch "${target_branch}" --single-branch --recurse-submodules \
+            "${repo_url}" "${target_dir}"
+    fi
+}
+
+# ==============================================================================
+# INTERACTIVE SETUP & FILE PREPARATION
+# ==============================================================================
+
+interactive_setup() {
+    log "Starting Interactive Configuration..."
     
     # 1. CPU Threads
     local cpu_threads=$(nproc)
@@ -171,206 +210,79 @@ configure_build_settings() {
         VERBOSE_BUILD=false
     fi
 
-    # 3. Repository Management
-    log "Checking Repositories..."
+    # 3. Prepare Custom Files (Config/Scripts)
+    # First, ensure we have the reference repo
+    log "Checking Custom Files Repository..."
+    manage_git "$REPO_CUSTOM" "$CUSTOM_FILES_DIR" "main-NSS" true
 
-    # Check Custom Files Repo
-    if [ -d "$CUSTOM_FILES_DIR" ]; then
-        # If directory exists, check if it is a git repo
-        if [ -d "$CUSTOM_FILES_DIR/.git" ]; then
-            read -p "Custom Files Repo detected at ${CUSTOM_FILES_DIR}. Update it? [y/N]: " update_custom
-            if [[ "$update_custom" =~ ^[Yy]$ ]]; then
-                UPDATE_CUSTOM_FILES=true
-            else
-                UPDATE_CUSTOM_FILES=false
-            fi
-        else
-            # Directory exists but NOT a git repo -> Personalized Build Detected
-            echo -e "\n\033[1;31m[ERROR] Directory '${CUSTOM_FILES_DIR}' exists but is not a git repository.\033[0m"
-            echo -e "\033[1;33mPERSONALIZED BUILD DETECTED.\033[0m"
-            echo "This script is designed for automated Git-based builds."
-            echo "Please build manually or refer to the OpenWRT official documentation:"
-            echo "https://openwrt.org/docs/guide-developer/build-system/use-buildsystem"
-            exit 1
-        fi
-    else
-        # Doesn't exist, will be cloned automatically
-        UPDATE_CUSTOM_FILES=true 
-    fi
-
-    # Check Firmware Repo
-    if [ -d "$BUILD_DIR" ]; then
-        if [ -d "$BUILD_DIR/.git" ]; then
-            read -p "Firmware Repo detected at ${BUILD_DIR}. Update it? [y/N]: " update_fw
-            if [[ "$update_fw" =~ ^[Yy]$ ]]; then
-                UPDATE_FIRMWARE=true
-            else
-                UPDATE_FIRMWARE=false
-            fi
-        else
-            echo -e "\n\033[1;31m[ERROR] Directory '${BUILD_DIR}' exists but is not a git repository.\033[0m"
-            echo -e "\033[1;33mPERSONALIZED BUILD DETECTED.\033[0m"
-            echo "This script is designed for automated Git-based builds."
-            echo "Please build manually or refer to the OpenWRT official documentation:"
-            echo "https://openwrt.org/docs/guide-developer/build-system/use-buildsystem"
-            exit 1
-        fi
-    else
-        UPDATE_FIRMWARE=true
-    fi
-
-    # Check Fantastic Packages Repo (openwrt/packages extra)
-    if [ -d "$FANTASTIC_PACKAGES_DIR" ]; then
-        if [ -d "$FANTASTIC_PACKAGES_DIR/.git" ]; then
-            read -p "Fantastic Packages Repo detected at ${FANTASTIC_PACKAGES_DIR}. Update it? [y/N]: " update_pkg
-            if [[ "$update_pkg" =~ ^[Yy]$ ]]; then
-                UPDATE_FANTASTIC_PACKAGES=true
-            else
-                UPDATE_FANTASTIC_PACKAGES=false
-            fi
-        else
-            echo -e "\n\033[1;31m[ERROR] Directory '${FANTASTIC_PACKAGES_DIR}' exists but is not a git repository.\033[0m"
-            echo -e "\033[1;33mPERSONALIZED BUILD DETECTED.\033[0m"
-            echo "This script is designed for automated Git-based builds."
-            echo "Please build manually or refer to the OpenWRT official documentation:"
-            echo "https://openwrt.org/docs/guide-developer/build-system/use-buildsystem"
-            exit 1
-        fi
-    else
-        # Does not exist (or parent doesn't exist yet), will be cloned automatically
-        UPDATE_FANTASTIC_PACKAGES=true
-    fi
-}
-
-manage_custom_files() {
     local local_files_path="${BASE_DIR}/files"
-    # Path to jkool702's files in the cloned repo
     local ref_files_path="${CUSTOM_FILES_DIR}/WRX36/bin/extra/files"
 
-    log "Managing Custom Configuration Files..."
-
-    # 1. Populate if empty/missing
+    # Populate local files if empty
     if [ ! -d "$local_files_path" ] || [ -z "$(ls -A "$local_files_path")" ]; then
+        log "Populating '${local_files_path}' from reference repo..."
+        mkdir -p "$local_files_path"
         if [ -d "$ref_files_path" ]; then
-            log "Local files folder empty or missing. Copying defaults from jkool702..."
-            mkdir -p "$local_files_path"
-            # Use cp -rT to copy contents, including hidden files
             cp -r "$ref_files_path/." "$local_files_path/"
+            # 1. REMOVE lib/modules from the LOCAL copy immediately
+            if [ -d "$local_files_path/lib/modules" ]; then
+                log "Removing 'lib/modules' from local files to prevent boot issues..."
+                rm -rf "$local_files_path/lib/modules"
+            fi
         else
-            warn "Reference files not found at $ref_files_path. Starting with empty files directory."
-            mkdir -p "$local_files_path"
+            warn "Reference files not found at $ref_files_path."
         fi
-    else
-        log "Local files directory exists and is not empty. Keeping existing files."
     fi
 
-    # 2. Prompt for editing
+    # Prompt for Review
     echo -e "\n\033[1;33m[USER ACTION REQUIRED]\033[0m"
-    read -p "Do you want to pause to edit/review custom files in '${local_files_path}'? [y/N]: " edit_choice
-    if [[ "$edit_choice" =~ ^[Yy]$ ]]; then
+    read -p "Do you want to pause to review/edit files in '${local_files_path}'? [y/N]: " review_files
+    if [[ "$review_files" =~ ^[Yy]$ ]]; then
         echo -e "\n\033[1;32mScript PAUSED.\033[0m"
-        echo "You can now edit the files in: ${local_files_path}"
-        echo "Tip: Scripts in 'etc/uci-defaults/' run once on first boot to set configuration."
-        echo "If you need significant time, you can press Ctrl+C to stop, finish editing, and restart the script."
-        echo -e "Type \033[1;37mready\033[0m and press Enter when you are done."
-        
+        echo "You can now edit '${local_files_path}'."
+        echo "Note: 'lib/modules' has already been excluded."
+        echo "If you need more time, stop the script (Ctrl+C) and run it again later."
+        echo -e "Type \033[1;37mready\033[0m and press Enter to continue."
         while true; do
             read -p "> " input_str
-            if [[ "$input_str" == "ready" ]]; then
-                break
-            fi
-            echo "Type 'ready' to continue."
+            if [[ "$input_str" == "ready" ]]; then break; fi
         done
-        log "Resuming build..."
     fi
 
-    # 3. Inject into build
-    # The build system looks for a directory named 'files' in the root of the build directory
-    if [ -d "$local_files_path" ] && [ -n "$(ls -A "$local_files_path")" ]; then
-        log "Injecting custom files into build directory..."
-        # Use cp -r to copy the directory contents into the target
-        # We copy to ${BUILD_DIR}/files because that's where OpenWRT looks for overlays
-        mkdir -p "${BUILD_DIR}/files"
-        cp -r "$local_files_path/." "${BUILD_DIR}/files/"
-    fi
-}
-
-manage_custom_packages() {
+    # 4. Prepare Custom Packages
     local local_pkgs_path="${BASE_DIR}/packages"
-
-    log "Managing Custom Packages..."
-
-    # 1. Create if missing
     if [ ! -d "$local_pkgs_path" ]; then
-        log "Local packages directory missing. Creating empty directory..."
+        log "Creating '${local_pkgs_path}' directory..."
         mkdir -p "$local_pkgs_path"
     fi
 
-    # 2. Prompt for editing
-    echo -e "\n\033[1;33m[USER ACTION REQUIRED]\033[0m"
-    read -p "Do you want to pause to add/edit custom packages in '${local_pkgs_path}'? [y/N]: " edit_choice
-    if [[ "$edit_choice" =~ ^[Yy]$ ]]; then
+    # Prompt for Packages Review
+    read -p "Do you want to pause to add/edit custom packages in '${local_pkgs_path}'? [y/N]: " review_pkgs
+    if [[ "$review_pkgs" =~ ^[Yy]$ ]]; then
         echo -e "\n\033[1;32mScript PAUSED.\033[0m"
-        echo "You can now add package sources (directories with Makefiles) to: ${local_pkgs_path}"
-        echo "If you need significant time, you can press Ctrl+C to stop, finish editing, and restart the script."
-        echo -e "Type \033[1;37mready\033[0m and press Enter when you are done."
-        
+        echo "Add directories containing Makefiles to '${local_pkgs_path}'."
+        echo -e "Type \033[1;37mready\033[0m and press Enter to continue."
         while true; do
             read -p "> " input_str
-            if [[ "$input_str" == "ready" ]]; then
-                break
-            fi
-            echo "Type 'ready' to continue."
+            if [[ "$input_str" == "ready" ]]; then break; fi
         done
-        log "Resuming build..."
     fi
 
-    # 3. Inject into build
-    if [ -d "$local_pkgs_path" ] && [ -n "$(ls -A "$local_pkgs_path")" ]; then
-        log "Injecting custom packages into build directory..."
-        # Copy to package/custom so OpenWrt picks them up
-        mkdir -p "${BUILD_DIR}/package/custom"
-        cp -r "$local_pkgs_path/." "${BUILD_DIR}/package/custom/"
-    fi
+    # 5. Update Firmware Repositories
+    log "Checking Firmware Repositories..."
+    manage_git "$REPO_FIRMWARE" "$BUILD_DIR" "$BRANCH_FIRMWARE" true
+    # Fantastic packages is inside build dir, so managed after firmware clone
 }
 
-manage_git() {
-    local repo_url=$1
-    local target_dir=$2
-    local branch=$3
-    local should_update=$4
-    local target_branch="${branch:-main}"
-
-    if [ -d "${target_dir}/.git" ]; then
-        if [ "$should_update" = true ]; then
-            log "Updating existing repo at ${target_dir}..."
-            cd "${target_dir}"
-            
-            # Fix: Fetch the specific branch mapping explicitly.
-            # This solves "unknown revision" if the repo was previously cloned with --single-branch
-            log "Fetching origin/${target_branch}..."
-            git fetch origin "${target_branch}:refs/remotes/origin/${target_branch}" --depth 1 || {
-                warn "Fetch specific branch failed, trying standard fetch..."
-                git fetch origin
-            }
-            
-            git reset --hard "origin/${target_branch}"
-        else
-            log "Skipping update for ${target_dir} (User Request)."
-        fi
-    else
-        log "Cloning ${repo_url} to ${target_dir}..."
-        git clone --depth 1 --branch "${target_branch}" --single-branch --recurse-submodules \
-            "${repo_url}" "${target_dir}"
-    fi
-}
+# ==============================================================================
+# BUILD HELPERS
+# ==============================================================================
 
 safe_make() {
     local target_desc="$1"
     shift
     local make_args=("$@")
     
-    # Define log files in BASE_DIR (not WORK_DIR)
     local log_file="${BASE_DIR}/build_${target_desc// /_}.log"
     local err_file="${BASE_DIR}/build_${target_desc// /_}_errors.log"
     
@@ -378,63 +290,40 @@ safe_make() {
     echo "Full log: $log_file"
     
     local status=0
-    
-    # Construct the command
     local cmd="make -j${MAKE_JOBS} ${make_args[*]}"
+    
     if [ "$VERBOSE_BUILD" = true ]; then
-        # Add V=s if verbose requested
         cmd="$cmd V=s"
-        # Verbose: Pipe to tee to show on screen AND write to log_file
-        # We use a subshell with pipefail to capture the make exit code, not tee's
-        # Uses || status=$? to catch failure code without triggering set -e exit
-        (
-            set -o pipefail
-            eval "$cmd" 2>&1 | tee "$log_file"
-        ) || status=$?
+        ( set -o pipefail; eval "$cmd" 2>&1 | tee "$log_file" ) || status=$?
     else
-        # Non-Verbose: Redirect stdout AND stderr to log_file
         eval "$cmd" > "$log_file" 2>&1 &
         local pid=$!
         spinner $pid
-        # Wait returns the exit code of the process. 
-        # Uses || status=$? to catch failure code without triggering set -e exit
         wait $pid || status=$?
     fi
     
-    # Always generate the filtered error file from the main log
     if [ -f "$log_file" ]; then
-        # Filter logic: specific compiler errors, generic failure keywords, and "missing"
-        # Added "missing" to regex and increased tail to 200
         grep -iE ": error:|: fatal error:|: undefined reference to|command not found|failed|cannot|unable to|missing" "$log_file" | tail -n 200 > "$err_file" || true
     fi
 
     if [ $status -ne 0 ]; then
-        # Output failing step in RED (Top)
         echo -e "\n\033[1;31m[FAIL] Step '${target_desc}' failed! (Exit Code: $status)\033[0m"
-        
         if [ -s "$err_file" ]; then
             echo -e "\n\033[1;33m--- DETECTED ERRORS (Last 200 lines) ---\033[0m"
             cat "$err_file"
             echo -e "\033[1;33m----------------------------------------\033[0m"
         else
-            echo "No specific error patterns matched in filter. Checking tail of full log:"
+            echo "No specific error patterns matched. Checking tail of full log:"
             tail -n 200 "$log_file"
         fi
-
-        # Output failing step in RED (Repeated at Bottom)
         echo -e "\n\033[1;31m[FAIL] Step '${target_desc}' failed! (Exit Code: $status)\033[0m"
-
-        # Suggest viewing the full log with tips
         echo -e "\n\033[1;37mTo view the complete log, run:\033[0m"
         echo -e "less +G \"$log_file\""
         echo -e "\n\033[1;30mTips for less:\033[0m"
-        echo -e "  Type \033[1;37m/Error 1\033[0m to search for common make errors."
-        echo -e "  Press \033[1;37mn\033[0m (next) or \033[1;37mN\033[0m (previous) to navigate matches."
-        echo -e "  Press \033[1;37mq\033[0m to quit."
-        
+        echo -e "  Type \033[1;37m/Error 1\033[0m to search for errors."
+        echo -e "  Press \033[1;37mn\033[0m (next) or \033[1;37mN\033[0m (prev). \033[1;37mq\033[0m to quit."
         exit $status
     else
-        # Success message in GREEN
         echo -e "\033[1;32m[SUCCESS] Step '${target_desc}' completed successfully.\033[0m"
     fi
 }
@@ -443,7 +332,7 @@ safe_make() {
 # MAIN EXECUTION
 # ==============================================================================
 
-# 1. System Checks
+# 1. System & Dependency Checks
 check_debian
 install_dependencies
 
@@ -451,15 +340,12 @@ install_dependencies
 setup_tmpfs
 configure_ccache
 
-# 3. Config Prompts (Moved after tmpfs setup to detect directories correctly)
-configure_build_settings
+# 3. Interactive Setup (Prompts, Repo Updates, File Prep)
+interactive_setup
 
-# 4. Fetch Sources
-# Fix: Correct branch for Custom Files is main-NSS per user instruction
-manage_git "$REPO_CUSTOM" "$CUSTOM_FILES_DIR" "main-NSS" "$UPDATE_CUSTOM_FILES"
-manage_git "$REPO_FIRMWARE" "$BUILD_DIR" "$BRANCH_FIRMWARE" "$UPDATE_FIRMWARE"
-# Changed fantastic-packages to use 'snapshot' branch
-manage_git "$REPO_FANTASTIC" "$FANTASTIC_PACKAGES_DIR" "snapshot" "$UPDATE_FANTASTIC_PACKAGES"
+# 4. Additional Sources (Inside Firmware Dir)
+# Fantastic packages (using snapshot branch)
+manage_git "$REPO_FANTASTIC" "$FANTASTIC_PACKAGES_DIR" "snapshot" true
 
 # 5. Prepare Build Environment
 cd "${BUILD_DIR}"
@@ -467,71 +353,64 @@ cd "${BUILD_DIR}"
 log "Updating feeds..."
 ./scripts/feeds update -a
 ./scripts/feeds install -a
-
-log "Second feed install pass..."
 ./scripts/feeds install -a
 
-# 5.1 Fix Recursive Dependency in Packages
-# This MUST happen before 'make defconfig' or 'make menuconfig'
-log "Checking for recursive dependency in tar package..."
-# Find the tar package makefile (usually in feeds/packages/utils/tar/Makefile)
-TAR_MAKEFILE=$(find package -name Makefile | xargs grep -l "menuconfig PACKAGE_tar" | head -n 1)
+# 5.1 Inject User Content (Files & Packages)
+# ------------------------------------------
+# Files: Clean build_dir/files, then Copy base_dir/files -> build_dir/files
+log "Injecting Custom Files into Firmware..."
+if [ -d "${BUILD_DIR}/files" ]; then
+    log "Cleaning existing firmware files directory..."
+    rm -rf "${BUILD_DIR}/files"
+fi
 
+local_files_path="${BASE_DIR}/files"
+if [ -d "$local_files_path" ] && [ -n "$(ls -A "$local_files_path")" ]; then
+    log "Copying user files from '${local_files_path}'..."
+    mkdir -p "${BUILD_DIR}/files"
+    cp -r "$local_files_path/." "${BUILD_DIR}/files/"
+    
+    # SAFETY: Double check removal of lib/modules inside the firmware build tree
+    if [ -d "${BUILD_DIR}/files/lib/modules" ]; then
+        warn "Removing 'lib/modules' from firmware build tree (Safety Check)."
+        rm -rf "${BUILD_DIR}/files/lib/modules"
+    fi
+else
+    log "No custom files to inject."
+fi
+
+# Packages: Inject base_dir/packages -> build_dir/package/custom
+log "Injecting Custom Packages..."
+local_pkgs_path="${BASE_DIR}/packages"
+if [ -d "$local_pkgs_path" ] && [ -n "$(ls -A "$local_pkgs_path")" ]; then
+    mkdir -p "${BUILD_DIR}/package/custom"
+    cp -r "$local_pkgs_path/." "${BUILD_DIR}/package/custom/"
+fi
+
+# 5.2 Fix Recursive Dependencies
+log "Checking for recursive dependency in tar package..."
+TAR_MAKEFILE=$(find package -name Makefile | xargs grep -l "menuconfig PACKAGE_tar" | head -n 1)
 if [ -n "$TAR_MAKEFILE" ]; then
-    log "Found tar makefile at: $TAR_MAKEFILE"
-    # Remove the circular dependency line "depends on !(PACKAGE_TAR_XZ) || PACKAGE_xz-utils"
-    # The logic is flawed because PACKAGE_TAR_XZ is a child of PACKAGE_tar
     if grep -q "depends on !(PACKAGE_TAR_XZ)" "$TAR_MAKEFILE"; then
         log "Patching recursive dependency in $TAR_MAKEFILE..."
         sed -i '/depends on !(PACKAGE_TAR_XZ)/d' "$TAR_MAKEFILE"
-    else
-        log "Tar makefile seems already patched or different version."
     fi
-else
-    warn "Could not locate tar package makefile. If build fails with recursive dependency, check feeds."
 fi
 
-# 5.2 Fix Aria2 build errors with LTO/MOLD
-# Correct approach: Insert flags at the TOP of the Makefile so they are read before 'include package.mk'
+# 5.3 Fix Aria2 build errors with LTO/MOLD
 log "Patching Aria2 to disable LTO/Mold (Insertion Method)..."
 ARIA2_MAKEFILE=$(find package -name Makefile | grep "aria2/Makefile" | head -n 1)
-
 if [ -n "$ARIA2_MAKEFILE" ]; then
-    log "Found Aria2 makefile at: $ARIA2_MAKEFILE"
-    
-    # We must insert PKG_BUILD_FLAGS:=no-lto near the top, after the first include
-    # This ensures OpenWRT sees it before generating build targets.
-    # We also explicitly force BFD linker in TARGET_LDFLAGS.
     if ! grep -q "PKG_BUILD_FLAGS:=no-lto" "$ARIA2_MAKEFILE"; then
         sed -i '/include $(TOPDIR)\/rules.mk/a PKG_BUILD_FLAGS:=no-lto\nTARGET_LDFLAGS += -fuse-ld=bfd' "$ARIA2_MAKEFILE"
         log "Inserted PKG_BUILD_FLAGS:=no-lto and BFD linker enforcement."
-    else
-        log "Aria2 Makefile already contains no-lto flag."
     fi
-
-    # CRITICAL: Clean Aria2 to ensure new flags are picked up!
-    log "Cleaning Aria2 package to enforce configuration changes..."
     make "${ARIA2_MAKEFILE%/Makefile}/clean"
-    
-    # NEW: Deep clean by removing the build directory manually
-    # This addresses the persistence of the 'undefined symbol' error by forcing a fresh compile.
-    log "Deep cleaning Aria2 build artifacts..."
     find build_dir -name "aria2-*" -type d -exec rm -rf {} + 2>/dev/null || true
-else
-    warn "Could not locate Aria2 makefile. Build might fail if LTO is enabled."
 fi
 
 # 6. Apply Customizations & Configs
-log "Applying custom configurations (files & settings)..."
-
-# REPLACED old copy logic with new interactive function
-# manage_custom_files handles copying defaults, pausing for edits, and injecting
-manage_custom_files
-
-# Manage Custom Packages (Prompt user to add their own)
-manage_custom_packages
-
-# We still need configs, so we adapt the old logic for config files ONLY (not files dir)
+log "Applying custom configurations..."
 PREV_CONFIG="${CUSTOM_FILES_DIR}/WRX36/bin/extra/configs/.config"
 PREV_DIFF="${CUSTOM_FILES_DIR}/WRX36/bin/extra/configs/.config.diff"
 
@@ -547,10 +426,9 @@ else
     make defconfig
 fi
 
-# 7. Apply Config Modifications (Packages & CCACHE)
+# 7. Apply Config Modifications
 log "Injecting Custom Packages and CCACHE..."
 
-# Helper to add package
 add_package() {
     local pkg=$1
     echo "CONFIG_PACKAGE_${pkg}=y" >> .config
@@ -559,28 +437,24 @@ add_package() {
 sed -i '/CONFIG_CCACHE/d' .config
 echo "CONFIG_CCACHE=y" >> .config
 
-# Fix: Manually link ccache to staging_dir to prevent ninja/build errors
-# The build system expects it in staging_dir/host/bin
 if command -v ccache &> /dev/null; then
     mkdir -p staging_dir/host/bin
     ln -sf "$(command -v ccache)" staging_dir/host/bin/ccache
-    log "Linked system ccache to staging_dir/host/bin/ccache"
 fi
 
-# Add requested packages
-add_package "aria2"           # Core download utility (backend)
-add_package "luci-app-aria2"  # LuCI configuration interface for Aria2
-add_package "ariang"          # Web frontend for Aria2
-add_package "luci-app-ariang" # LuCI integration for AriaNg
+add_package "aria2"
+add_package "luci-app-aria2"
+add_package "ariang"
+add_package "luci-app-ariang"
 add_package "btop"
-add_package "htop" # Fallback/Alternative
-add_package "nano" # Basic editor
-add_package "e2fsprogs" # fsck for ext2/3/4
-add_package "dosfstools" # fsck for FAT
-add_package "f2fs-tools" # fsck for F2FS
+add_package "htop"
+add_package "nano"
+add_package "e2fsprogs"
+add_package "dosfstools"
+add_package "f2fs-tools"
+add_package "irqbalance"
 
-# Disable Vim to prevent build errors due to environment changes
-log "Disabling Vim to avoid configuration errors..."
+# Disable Vim
 sed -i '/CONFIG_PACKAGE_vim/d' .config
 sed -i '/CONFIG_PACKAGE_vim-full/d' .config
 sed -i '/CONFIG_PACKAGE_vim-tiny/d' .config
@@ -588,15 +462,12 @@ echo "# CONFIG_PACKAGE_vim is not set" >> .config
 echo "# CONFIG_PACKAGE_vim-full is not set" >> .config
 echo "# CONFIG_PACKAGE_vim-tiny is not set" >> .config
 
-# Disable sstp-client and its dependents to resolve file conflict with ppp
-log "Disabling sstp-client and dependents to resolve file conflict with ppp..."
-# We must disable the protocol handler (luci-proto-sstp) because it selects sstp-client
+# Disable sstp-client
 sed -i '/CONFIG_PACKAGE_luci-proto-sstp/d' .config
 sed -i '/CONFIG_PACKAGE_sstp-client/d' .config
 echo "# CONFIG_PACKAGE_luci-proto-sstp is not set" >> .config
 echo "# CONFIG_PACKAGE_sstp-client is not set" >> .config
 
-# Sync configuration to avoid "out of sync" warnings
 log "Syncing configuration..."
 make defconfig
 
@@ -613,57 +484,37 @@ if [ -f "include/cmake.mk" ] && ! grep -q "CMAKE_POLICY_VERSION_MINIMUM=3.5" inc
     sed -i '/^cmake_bool[[:space:]]*=/a CMAKE_OPTIONS += -DCMAKE_POLICY_VERSION_MINIMUM=3.5' include/cmake.mk
 fi
 
-# 9.1 Fix: Patch ksmbd to remove system shares
-log "Patching ksmbd init script to remove internal system shares..."
+# 9.1 Fix: Patch ksmbd
 KSMBD_INIT=$(find package -name "ksmbd.init" 2>/dev/null | head -n 1)
-
 if [ -n "$KSMBD_INIT" ]; then
-    if grep -q "REMOVE SYSTEM SHARES" "$KSMBD_INIT"; then
-        log "ksmbd.init already patched."
-    else
-        # Create patch content in a temp file
+    if ! grep -q "REMOVE SYSTEM SHARES" "$KSMBD_INIT"; then
         cat << 'EOF' > ksmbd_fix.txt
     # --- FIX: REMOVE SYSTEM SHARES ---
     # Ensure the config file exists before editing
     if [ -f /var/etc/ksmbd/ksmbd.conf ]; then
         # Delete the [ubi0_2] block and lines following it
         sed -i '/\[ubi0_2\]/,/^$/d' /var/etc/ksmbd/ksmbd.conf
-        
         # Delete the [ubiblock0_1] block and lines following it
         sed -i '/\[ubiblock0_1\]/,/^$/d' /var/etc/ksmbd/ksmbd.conf
     fi
     # ---------------------------------
 EOF
-        
-        # Insert using awk before procd_open_instance
         awk 'NR==FNR{fix[n++]=$0; next} /procd_open_instance/{for(i=0;i<n;i++) print fix[i]} 1' ksmbd_fix.txt "$KSMBD_INIT" > "$KSMBD_INIT.tmp" && mv "$KSMBD_INIT.tmp" "$KSMBD_INIT"
         rm ksmbd_fix.txt
         log "Applied ksmbd patch to $KSMBD_INIT"
     fi
-else
-    warn "Could not find ksmbd.init to patch. System shares fix not applied."
 fi
 
-# 10. Disable LTO and MOLD Globally (Stability Fix)
-# The user experienced persistent linker errors (ltrans/mold) with Aria2.
-# Disabling these features globally is the most robust fix.
-log "Disabling Global LTO and Mold support for build stability..."
+# 10. Disable Global LTO/MOLD
+log "Disabling Global LTO and Mold..."
 sed -i '/CONFIG_USE_MOLD/d' .config
 echo "# CONFIG_USE_MOLD is not set" >> .config
 sed -i '/CONFIG_USE_LTO/d' .config
 echo "# CONFIG_USE_LTO is not set" >> .config
-
-# Force config update
 make defconfig
 
-# 11. Clean Aria2 (Remove old LTO artifacts)
-# This addresses the user query: "Should be this fixed by removing Aria2 compiled artifacts?"
-# YES. We must ensure no LTO objects remain.
-log "Cleaning Aria2 to remove any stale LTO artifacts..."
-# We use the package name 'aria2' which OpenWRT finds automatically
-make package/aria2/clean || warn "Aria2 clean step returned non-zero (might not be built yet), continuing..."
-
-# Also deep clean directory if it exists
+# 11. Clean Aria2
+make package/aria2/clean || true
 find build_dir -name "aria2-*" -type d -exec rm -rf {} + 2>/dev/null || true
 
 # 12. Download Sources
@@ -674,11 +525,7 @@ log "Pre-preparing kernel..."
 safe_make "Prepare Kernel Config" prepare_kernel_conf
 
 KERNEL_BUILD_DIR=$(find build_dir/target* -maxdepth 2 -name "linux-*" -type d | head -n 1)
-
-if [ -z "$KERNEL_BUILD_DIR" ]; then
-    warn "Could not determine Kernel Build Dir. Skipping specific Kernel Makefile patches."
-else
-    log "Patching Kernel Makefile in $KERNEL_BUILD_DIR..."
+if [ -n "$KERNEL_BUILD_DIR" ]; then
     ARM64_MAKEFILE="${KERNEL_BUILD_DIR}/arch/arm64/Makefile"
     if [ -f "$ARM64_MAKEFILE" ]; then
         sed -i 's/^asm-arch := .*/asm-arch := armv8-a+crc+crypto+rdma/' "$ARM64_MAKEFILE"
@@ -691,12 +538,7 @@ fi
 
 # 14. Final Build
 log "Starting Final Build..."
-
-# Re-run prepare
 safe_make "Prepare Build" prepare
-
-# Main Compile
-# Removed IGNORE_ERRORS=1 and -k to ensure we fail fast and see the actual error.
 safe_make "Final Firmware Build"
 
 log "Build Complete. Images should be in ${BUILD_DIR}/bin/targets/"
