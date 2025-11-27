@@ -8,5 +8,4 @@ function index()
     -- entry(path, target, title, order)
     local page = entry({"admin", "services", "plexmediaserver"}, cbi("plexmediaserver"), _("Plex Media Server"), 90)
     page.dependent = true
-    page.acl_depends = { "luci-app-plexmediaserver" }
 end
