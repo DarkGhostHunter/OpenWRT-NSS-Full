@@ -1,0 +1,22 @@
+#!/bin/sh
+
+# --- SAFETY CHECK (The Loop Breaker) ---
+# If this file exists, we have already run. Exit immediately.
+# This prevents infinite reboots if this script fails to self-delete.
+if [ -f /etc/first_boot_done ]; then
+    exit 0
+fi
+
+# --- MARK AS DONE ---
+# Create the marker immediately so the check above works on next boot.
+touch /etc/first_boot_done
+
+# --- LOGGING ---
+logger -p notice -t luci-defaults "First boot setup complete. Rebooting..."
+
+# --- SCHEDULE REBOOT ---
+# Sync ensures the marker is written to flash.
+# Sleep 10s gives the OS time to handle the script deletion (which happens after exit 0).
+{ sync; sleep 10; reboot; } &
+
+exit 0
