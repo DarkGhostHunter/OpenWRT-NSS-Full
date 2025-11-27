@@ -30,9 +30,9 @@ if [ -f /etc/init.d/unbound ]; then
    
    # FIX: Only run anchor if we have a default gateway (internet access)
    # Running this offline causes a massive timeout delay during first boot
-   if route -n | grep -q "^0.0.0.0"; then
-       unbound-anchor -a /etc/unbound/root.key
-   fi
+   # if route -n | grep -q "^0.0.0.0"; then
+   #    unbound-anchor -a /etc/unbound/root.key
+   # fi
 
    mkdir -p /var/lib/unbound
    chown -R unbound:unbound /etc/unbound /var/lib/unbound
@@ -70,7 +70,8 @@ fi
 # improve irq distrubution
 if [ -f /etc/init.d/qca-nss-drv ]; then
 	sed -i s/"set_affinity 'ppdu-end-interrupts-mac1' 1 1/set_affinity 'ppdu-end-interrupts-mac1' 3 1/" /etc/init.d/qca-nss-drv
-	service qca-nss-drv restart
+   # This may be the culprit for a boot loop, since the router will restart anyway.
+	# service qca-nss-drv restart
 fi
 
 # tweak ecm
