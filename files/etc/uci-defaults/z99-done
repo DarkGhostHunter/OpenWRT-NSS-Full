@@ -10,6 +10,6 @@ sync
 logger -p notice -t luci-defaults "Luci defaults done"
 
 # Schedule reboot in background to allow this script to exit 0
-{ sleep 5; reboot; } &
+{ sync; sleep 5; reboot; } &
 
 exit 0
