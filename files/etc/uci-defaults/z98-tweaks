@@ -96,8 +96,8 @@ touch /etc/config/wireless
 uci batch <<'EOF'
 # Set Group Key Update to 24 hours (86400 seconds) for all interfaces.
 # This reduces the chance of roam/re-key collisions.
-set wireless.default_radio0.wpa_group_rekey='86400'
-set wireless.default_radio1.wpa_group_rekey='86400'
+set wireless.lan_radio0.wpa_group_rekey='86400'
+set wireless.lan_radio1.wpa_group_rekey='86400'
 EOF
 uci commit wireless
 }
