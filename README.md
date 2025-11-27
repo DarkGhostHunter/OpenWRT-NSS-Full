@@ -31,7 +31,7 @@ In cause you didn't check the source repositories, here is a gist of what this s
 ### Firmware Configuration & Optimization
 * **Target:** Dynalink DL-WRX36 (Qualcomm IPQ807x) with **Cortex-A53** optimizations (CRC, Crypto, RDMA).
 * **Storage Layout:**
-    * **Partitions:** Kernel increased to **16MB**; RootFS reduced to **112MB**.
+    * **Partitions:** Kernel increased to **16MB**; RootFS reduced to **112MB**, just to avoid the internal NAND Flash wear.
     * **Filesystem:** SquashFS (256 block size) enabled; Ext4 and TarGz disabled.
     * **Flash Protection:** Enables **ZRAM** (swap on compressed RAM) and forces **ZSTD compression** for UBIFS to minimize flash wear.
 * **NSS Support:** Builds from NSS-specific branches and explicitly disables standard `ath11k` drivers to avoid conflicts.
@@ -39,12 +39,11 @@ In cause you didn't check the source repositories, here is a gist of what this s
 ### Critical Build Fixes
 * **Binutils 2.44:** Injects a specific dependency rule (`all-bfd: all-libsframe`) to prevent race conditions during parallel builds.
 * **Kernel Makefile:** Uses a "Nuclear Option" to detect and sanitize corrupt `asm-arch` variables in the kernel Makefiles.
-* **Toolchain:** Forces `-fPIC` for ZSTD host tools and enforces CMake policy version 3.5+.
+* **Toolchain:** Forces `-fPIC` for ZSTD host tools and enforces CMake policy version 3.5+ for those packages that still use the old version (and won't compile).
 
 ### Package Management
-* **Sources:** Integrates `fantastic-packages` and custom configs from `jkool702`.
+* **Sources:** Integrates `fantastic-packages` and custom configs from `jkool702`, except some useless packages (for this build)
 * **Exclusions:** Automatically filters out known unstable packages (e.g., `shadowsocks-rust`, `pcap-dnsproxy`, `stuntman`) to prevent build errors.
-* **DHCP Static Leases**: Added a small package that allows to change DHCP static leases, absent when using `odhcpd` instead of `dnsmasq`.
 
 ### Default Config
 * **User config and files**: Integrates the `files` directory to add custom configuration defaults.
