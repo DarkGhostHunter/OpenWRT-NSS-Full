@@ -2,26 +2,18 @@
 
 # ------------------------------------------------------------------
 # SYSTEM & KERNEL TUNING
-# Purpose: Optimize network buffer sizes for the bandwidth monitor (nlbwmon)
-# and ensure connection tracking is robust.
 # ------------------------------------------------------------------
 {
-    # Fix nlbwmon warning: "netlink receive buffer size ... capped"
-    # Increases the read buffer to prevent packet loss in stats.
+    # Fix nlbwmon warning and TCP window check
     grep -q 'net.core.rmem_max' < /etc/sysctl.conf || echo 'net.core.rmem_max=524288' >> /etc/sysctl.conf
-    
-    # Existing tweak from z7-custom (kept for completeness)
     grep -q 'net.netfilter.nf_conntrack_tcp_no_window_check' < /etc/sysctl.conf || echo 'net.netfilter.nf_conntrack_tcp_no_window_check=1' >> /etc/sysctl.conf
-    
-    # Apply immediately for this session
     sysctl -p
 }
 
 # ------------------------------------------------------------------
-# UNBOUND DNS OPTIMIZATION
-# Purpose: Fix the 37s latency crashes by disabling Root Mirroring, 
-# optimizing resource usage for the router's RAM, and fixing LuCI errors.
+# UNBOUND DNS OPTIMIZATION (Consolidated Fixes)
 # ------------------------------------------------------------------
+# We apply these settings LAST to ensure they override z8-unbound
 { [ -f /etc/config/unbound ] && sed s/'[[:space:]]'//g /etc/config/unbound |
 grep -qE '.+' && [ -f /rom/etc/config/unbound ] && sed s/'[[:space:]]'//g /rom/etc/config/unbound | grep -qE '.+' && !
 [ "$(cat /etc/config/unbound)" = "$(cat /rom/etc/config/unbound)" ]; } || {
@@ -29,36 +21,31 @@ grep -qE '.+' && [ -f /rom/etc/config/unbound ] && sed s/'[[:space:]]'//g /rom/e
 touch /etc/config/unbound
 
 uci batch <<'EOF'
-# 1. Disable Root Zone Mirroring (RFC 7706)
-# This was the primary cause of the hang/crash (trying to download/serve the root zone).
+# Disable Root Zone Mirroring to prevent offline crashes/hangs
 set unbound.auth_icann.enabled='0'
 set unbound.auth_icann.fallback='0'
 
-# 2. Optimize Resources
-# 'small' profile tunes buffer sizes (msg-cache-slabs) to fit router RAM/CPU.
-# Disabling 'recursion' setting forces standard behavior (fixes "agressive" typo).
+# Optimize Resources
 set unbound.ub_main.resource='small'
 delete unbound.ub_main.recursion
 
-# 3. Reduce Logging & Stats Overhead
-# Prevents /tmp filling up with heavy stat logs.
+# Reduce Logging & Stats Overhead
 set unbound.ub_main.extended_stats='0'
 
-# 4. Fix Web UI (LuCI) Errors
-# Re-enables the control socket so the LuCI stats page can connect (fixes "Connection Refused").
+# Fix Web UI (LuCI) Errors
 set unbound.ub_main.unbound_control='1'
 
-# 5. Disable Subnet Cache
-# Fixes "serve-expired" log warnings and saves RAM (useless behind NAT).
+# Disable Subnet Cache
 set unbound.ub_main.subnetcache='0'
 EOF
 uci commit unbound
+
+# Restart Unbound to apply these fixes immediately
+/etc/init.d/unbound restart
 }
 
 # ------------------------------------------------------------------
 # USTEER ROAMING STABILITY
-# Purpose: Stop the "ping-pong" effect between bands which causes 
-# "key addition failed" driver errors and disconnects.
 # ------------------------------------------------------------------
 { [ -f /etc/config/usteer ] && sed s/'[[:space:]]'//g /etc/config/usteer |
 grep -qE '.+' && [ -f /rom/etc/config/usteer ] && sed s/'[[:space:]]'//g /rom/etc/config/usteer | grep -qE '.+' && !
@@ -67,16 +54,8 @@ grep -qE '.+' && [ -f /rom/etc/config/usteer ] && sed s/'[[:space:]]'//g /rom/et
 touch /etc/config/usteer
 
 uci batch <<'EOF'
-# 1. Set a realistic signal floor (-60 dBm).
-# Prevents forcing devices onto 5GHz when the signal is unusable (0 SNR).
 set usteer.@usteer[0].band_steering_min_snr='-60'
-
-# 2. Increase threshold to prevent flapping.
-# Only steer if the new signal is significantly better (5dB diff).
 set usteer.@usteer[0].band_steering_threshold='5'
-
-# 3. Increase Steering Interval
-# Check every 2 minutes instead of 30s to reduce driver stress.
 set usteer.@usteer[0].band_steering_interval='120000'
 EOF
 uci commit usteer
@@ -84,8 +63,6 @@ uci commit usteer
 
 # ------------------------------------------------------------------
 # WIRELESS SECURITY TWEAKS
-# Purpose: Reduce the frequency of "key addition failed" errors by
-# reducing how often the group key is rotated (from 10m to 24h).
 # ------------------------------------------------------------------
 { [ -f /etc/config/wireless ] && sed s/'[[:space:]]'//g /etc/config/wireless |
 grep -qE '.+' && [ -f /rom/etc/config/wireless ] && sed s/'[[:space:]]'//g /rom/etc/config/wireless | grep -qE '.+' && !
@@ -94,8 +71,6 @@ grep -qE '.+' && [ -f /rom/etc/config/wireless ] && sed s/'[[:space:]]'//g /rom/
 touch /etc/config/wireless
 
 uci batch <<'EOF'
-# Set Group Key Update to 24 hours (86400 seconds) for all interfaces.
-# This reduces the chance of roam/re-key collisions.
 set wireless.lan_radio0.wpa_group_rekey='86400'
 set wireless.lan_radio1.wpa_group_rekey='86400'
 EOF

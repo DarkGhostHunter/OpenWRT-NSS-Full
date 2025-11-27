@@ -62,7 +62,7 @@ add_list dhcp.IoT.dhcp_option='1,255.255.255.0'
 add_list dhcp.IoT.dhcp_option='3,192.168.0.1'
 add_list dhcp.IoT.dhcp_option='4,192.168.0.1'
 add_list dhcp.IoT.dhcp_option='6,192.168.0.1'
-add_list dhcp.IoT.dhcp_option='12,OpenWrt_WRX36'
+add_list dhcp.IoT.dhcp_option='12,OpenWrt_WRX36-IoT'
 add_list dhcp.IoT.dhcp_option='15,lan'
 
 delete dhcp.@host[0]
