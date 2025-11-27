@@ -444,7 +444,6 @@ add_package "nano"
 add_package "e2fsprogs"
 add_package "dosfstools"
 add_package "f2fs-tools"
-add_package "irqbalance"
 
 # Disable Vim
 sed -i '/CONFIG_PACKAGE_vim/d' .config
