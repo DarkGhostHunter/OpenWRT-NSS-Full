@@ -1,15 +1,22 @@
 #!/bin/sh
 
-# Ensure the script exits cleanly so UCI marks it as "applied"
-# before we trigger the reboot.
+# --- SAFETY CHECK (The Loop Breaker) ---
+# If this file exists, we have already run. Exit immediately.
+# This prevents infinite reboots if this script fails to self-delete.
+if [ -f /etc/first_boot_done ]; then
+    exit 0
+fi
 
-# Sync filesystems to be safe
-sync
+# --- MARK AS DONE ---
+# Create the marker immediately so the check above works on next boot.
+touch /etc/first_boot_done
 
-# Just reboot safely
-logger -p notice -t luci-defaults "Luci defaults done"
+# --- LOGGING ---
+logger -p notice -t luci-defaults "First boot setup complete. Rebooting..."
 
-# Schedule reboot in background to allow this script to exit 0
-{ sync; sleep 5; reboot; } &
+# --- SCHEDULE REBOOT ---
+# Sync ensures the marker is written to flash.
+# Sleep 10s gives the OS time to handle the script deletion (which happens after exit 0).
+{ sync; sleep 10; reboot; } &
 
 exit 0
