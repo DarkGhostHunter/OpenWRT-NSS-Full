@@ -85,6 +85,20 @@ cd openwrt-build
 
 
 4. Grab a cup of coffee and be ready to dive into the never-ending oddisey of building a custom OpenWRT firmware for sake of pErFoRmAnCe.
+
+5. Follow OpenWRT instructions to [flash your device](https://openwrt.org/toh/dynalink/dl-wrx36), or do the usual _SysUpgrade_.
+
+> [!NOTE]
+>
+> If your SSH commands output something like `ssh_dispatch_run_fatal: ... error in libcrypto`, you will need to use SSH with some older crypto to connect. Without modifying your system, just run podman/docker and run the command inside it.
+> 
+> ```shell
+> podman run -it --rm --network=host \
+  docker.io/alpine:3.19 \
+  /bin/sh -c "apk add --no-cache openssh-client && ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa admin@192.168.216.1"
+> ```
+
+The router will boot two times: once it applies the defaults it will boot again. Just wait patiently until 10.0.0.1 becomes availble.
 ---
 
 
