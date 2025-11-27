@@ -321,10 +321,12 @@ unbound_mkdir() {
       logger -t unbound -s "default trust anchor (built in root DS record)"
     fi
   fi
-  if [ -x $UB_ANCHOR ] ; then
-    $UB_ANCHOR -a $UB_RKEY_FILE
-    chown unbound:unbound $UB_RKEY_FILE
-  fi
+  # DISABLE BOOT-TIME DOWNLOAD. This will run on boot and will make the
+  # router think it hasn't completed the first time boot and else.
+  # if [ -x $UB_ANCHOR ] ; then
+  #  $UB_ANCHOR -a $UB_RKEY_FILE
+  #  chown unbound:unbound $UB_RKEY_FILE
+  # fi
 
 
   if [ -s $UB_RKEY_FILE.keep ] ; then

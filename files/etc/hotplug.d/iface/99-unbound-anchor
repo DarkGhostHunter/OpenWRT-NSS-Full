@@ -1,0 +1,39 @@
+#!/bin/sh
+
+# Load Unbound defaults to get file paths ($UB_RKEY_FILE, $UB_ANCHOR)
+. /usr/lib/unbound/defaults.sh
+
+# Only run if the interface is 'wan' and the action is 'ifup'
+[ "$INTERFACE" = "wan" ] || exit 0
+[ "$ACTION" = "ifup" ] || exit 0
+
+# Run the logic in the background to avoid blocking the hotplug system
+(
+    # Wait for actual internet connectivity (try for 60 seconds)
+    count=0
+    while [ $count -lt 12 ]; do
+        # Ping check to ensure we can reach the outside world
+        if ping -q -c 1 -W 5 8.8.8.8 >/dev/null 2>&1; then
+            logger -t unbound-anchor "Internet connection detected. Validating Root Trust Anchor..."
+            
+            # Execute the anchor maintenance
+            if [ -x "$UB_ANCHOR" ]; then
+                # -a attempts to update/verify the root key
+                $UB_ANCHOR -a "$UB_RKEY_FILE"
+                
+                # Fix permissions
+                chown unbound:unbound "$UB_RKEY_FILE"
+                
+                logger -t unbound-anchor "Root Anchor updated. Restarting Unbound..."
+                /etc/init.d/unbound restart
+            fi
+            break
+        fi
+        
+        # Wait 5 seconds before retrying
+        sleep 5
+        count=$((count+1))
+    done
+) &
+
+exit 0
