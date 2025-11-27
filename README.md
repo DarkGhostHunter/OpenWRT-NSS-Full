@@ -56,6 +56,39 @@ In cause you didn't check the source repositories, here is a gist of what this s
 
 ---
 
+## How to install?
+
+1. Create a Debian 13 (or later) container with [Distrobox](https://distrobox.it/), [Podman](https://podman.io/) or Docker.
+
+```shell
+distrobox create -i debian:13
+```
+
+2. Clone this repository on the directory of your choice inside the container, like `openwrt-build`
+
+```shell
+git clone --depth 1 --single-branch \
+  https://github.com/DarkGhostHunter/OpenWRT-NSS-Full.git \
+  openwrt-build
+```
+
+3. Execute the `build.sh` script.
+
+```shell
+cd openwrt-build
+
+./build.sh
+```
+
+> [!NOTE]
+>
+> If it doesn't work, execute `chmod +x build.sh` to make the script executable. 
+
+
+4. Grab a cup of coffee and be ready to dive into the never-ending oddisey of building a custom OpenWRT firmware for sake of pErFoRmAnCe.
+---
+
+
 ## FAQ
 
 * **Do you plan to add XXX device?**
