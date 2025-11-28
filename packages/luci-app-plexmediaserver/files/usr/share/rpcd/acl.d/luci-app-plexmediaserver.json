@@ -1,0 +1,17 @@
+{
+	"luci-app-plexmediaserver": {
+		"description": "Grant access to Plex Media Server configuration",
+		"read": {
+			"uci": [ "plexmediaserver" ],
+			"file": {
+				"/etc/config/plexmediaserver": [ "read" ]
+			}
+		},
+		"write": {
+			"uci": [ "plexmediaserver" ],
+			"file": {
+				"/etc/config/plexmediaserver": [ "write" ]
+			}
+		}
+	}
+}
