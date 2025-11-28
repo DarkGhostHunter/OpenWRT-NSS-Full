@@ -53,10 +53,19 @@ fi
 if [ -f /etc/init.d/chronyd ]; then
    /etc/init.d/sysntpd disable
    /etc/init.d/sysntpd stop
-   chrony-hotplug
-   [ -f /etc/crontabs/root ] || printf '' >>/etc/crontabs/root
-   grep -q 'chrony-hotplug' </etc/crontabs/root || echo '55 2,10,18 * * * chrony-hotplug' >> /etc/crontabs/root
-   chmod +x /etc/crontabs/root
+   
+   # Setup Cron Job safely
+   [ -f /etc/crontabs/root ] || touch /etc/crontabs/root
+   
+   # Remove any potential malformed or old entries for chrony-hotplug
+   sed -i '/chrony-hotplug/d' /etc/crontabs/root
+   
+   # Add the correct, full-path entry
+   # Run at 2:55, 10:55, 18:55
+   echo '55 2,10,18 * * * /usr/sbin/chrony-hotplug' >> /etc/crontabs/root
+   
+   chmod 0600 /etc/crontabs/root
+   /etc/init.d/cron restart
 fi
 
 # fix insmod
