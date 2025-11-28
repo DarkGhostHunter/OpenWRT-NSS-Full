@@ -440,8 +440,8 @@ if [ -f "$BUSYBOX_MAKEFILE" ]; then
         # Also resetting revision to avoid confusion
         sed -i 's/^PKG_RELEASE:=.*/PKG_RELEASE:=1/' "$BUSYBOX_MAKEFILE"
         
-        # Remove hash to prevent build failure due to checksum mismatch with new version
-        sed -i '/^PKG_HASH:=/d' "$BUSYBOX_MAKEFILE"
+        # Explicitly set the hash to be skipped
+        sed -i 's/^PKG_HASH:=.*/PKG_HASH:=skip/' "$BUSYBOX_MAKEFILE"
         
         log "BusyBox patched to version 1.36.1 in $BUSYBOX_MAKEFILE (Downgraded from 1.37.x)"
     else
