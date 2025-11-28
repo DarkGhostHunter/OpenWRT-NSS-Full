@@ -13,6 +13,7 @@ set firewall.@defaults[0].output='ACCEPT'
 set firewall.@defaults[0].forward='REJECT'
 set firewall.@defaults[0].syn_flood='1'
 
+# LAN Zone
 delete firewall.@zone[0]
 add firewall zone
 set firewall.@zone[0]=zone
@@ -21,12 +22,14 @@ add_list firewall.@zone[0].network='lan'
 set firewall.@zone[0].input='ACCEPT'
 set firewall.@zone[0].output='ACCEPT'
 set firewall.@zone[0].forward='ACCEPT'
+
 delete firewall.@forwarding[0]
 add firewall forwarding
 set firewall.@forwarding[0]=forwarding
 set firewall.@forwarding[0].src='lan'
 set firewall.@forwarding[0].dest='wan'
 
+# IoT Zone
 delete firewall.@zone[1]
 add firewall zone
 set firewall.@zone[1]=zone
@@ -35,12 +38,14 @@ set firewall.@zone[1].input='REJECT'
 set firewall.@zone[1].output='ACCEPT'
 set firewall.@zone[1].forward='REJECT'
 add_list firewall.@zone[1].network='IoT'
+
 delete firewall.@forwarding[1]
 add firewall forwarding
 set firewall.@forwarding[1]=forwarding
 set firewall.@forwarding[1].src='IoT'
 set firewall.@forwarding[1].dest='wan'
 
+# WAN Zone
 delete firewall.@zone[2]
 add firewall zone
 set firewall.@zone[2]=zone
@@ -53,39 +58,6 @@ set firewall.@zone[2].forward='REJECT'
 set firewall.@zone[2].masq='1'
 set firewall.@zone[2].mtu_fix='1'
 
-# --- Allow WAN Access (Admin & SSH) ---
-# Rules are created but DISABLED by default for security.
-# Users can enable them via LuCI (Network -> Firewall -> Traffic Rules)
-# or via CLI (uci set firewall.@rule[-1].enabled='1')
-
-# Allow SSH from WAN
-add firewall rule
-set firewall.@rule[-1].name='Allow-SSH-WAN'
-set firewall.@rule[-1].src='wan'
-set firewall.@rule[-1].proto='tcp'
-set firewall.@rule[-1].dest_port='22'
-set firewall.@rule[-1].target='ACCEPT'
-set firewall.@rule[-1].enabled='0'
-
-# Allow HTTP (LuCI) from WAN
-add firewall rule
-set firewall.@rule[-1].name='Allow-HTTP-WAN'
-set firewall.@rule[-1].src='wan'
-set firewall.@rule[-1].proto='tcp'
-set firewall.@rule[-1].dest_port='80'
-set firewall.@rule[-1].target='ACCEPT'
-set firewall.@rule[-1].enabled='0'
-
-# Allow HTTPS (LuCI) from WAN
-add firewall rule
-set firewall.@rule[-1].name='Allow-HTTPS-WAN'
-set firewall.@rule[-1].src='wan'
-set firewall.@rule[-1].proto='tcp'
-set firewall.@rule[-1].dest_port='443'
-set firewall.@rule[-1].target='ACCEPT'
-set firewall.@rule[-1].enabled='0'
-# --------------------------------------
-
 delete firewall.adblock_IoT53
 set firewall.adblock_IoT53=redirect
 set firewall.adblock_IoT53.name='Adblock DNS (IoT, 53)'
@@ -96,6 +68,7 @@ set firewall.adblock_IoT53.dest_port='53'
 set firewall.adblock_IoT53.target='DNAT'
 set firewall.adblock_IoT53.family='any'
 set firewall.adblock_IoT53.enabled='0'
+
 delete firewall.adblock_lan53
 set firewall.adblock_lan53=redirect
 set firewall.adblock_lan53.name='Adblock DNS (lan, 53)'

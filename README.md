@@ -125,9 +125,9 @@ Config is on `/etc/netdata/netdata.conf`.
 
 ### 4. Accessing admin/SSH from WAN
 
-If you have set this router as part of a larger network or a bridge or something, you will find that you cannot access the router from the WAN port. I added some firewall rules, that are disabled by default, to allow just that, as `Allow-{SSH|HTTP|HTTPS}-WAN`.
+If you have set this router as part of a larger network or a bridge or something, you will find that you cannot access the router from the WAN port. 
 
-You can enable these at Network → Firewall → Traffic Rules.
+Simple solution is to disable the firewall, or modify the WAN zone to accept
 
 ### 5. Chrony is hotplug
 
@@ -154,3 +154,9 @@ Do not. Asks for a non-invansive fix. Post it here or make it a PR to integrate 
 Because Adblock loads its source list of banned ip into unbound, hence why it consumes so much RAM. Still, around 50% of RAM left for anything.
 
 If you're using this router behind a network as a bridge or something, you may disable Adblock since this would be handled upstream.
+
+* **Help! My router restarts every 15 minutes or so!**
+
+It's because Watchcat configuration, which will restart the interface or network if it sees the WAN without Internet connection for 15 minutes.
+
+This is _usually_ a good idea since sometimes modems or other routes an be very picky in terms of restarting after the Internet is down. Either way, if it a nuance for you, you may disable the service or remove the rules.
