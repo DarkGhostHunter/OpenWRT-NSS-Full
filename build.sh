@@ -425,6 +425,32 @@ else
     warn "Could not find netdata.init in feeds/packages. Netdata might still hog boot resources."
 fi
 
+# 5.5 Downgrade BusyBox
+# -------------------
+# PROBLEM: Busybox crond has parsing bugs in version 1.37.x.
+# SOLUTION: If version is 1.37 or 1.37.0, force downgrade to 1.36.1.
+
+log "Checking BusyBox version for downgrade to 1.36.1..."
+BUSYBOX_MAKEFILE=$(find package -name Makefile | grep "/busybox/Makefile" | head -n 1)
+
+if [ -f "$BUSYBOX_MAKEFILE" ]; then
+    # Check if version is 1.37 or 1.37.0
+    if grep -qE '^PKG_VERSION:=1\.37(\.0)?$' "$BUSYBOX_MAKEFILE"; then
+        sed -i 's/^PKG_VERSION:=.*/PKG_VERSION:=1.36.1/' "$BUSYBOX_MAKEFILE"
+        # Also resetting revision to avoid confusion
+        sed -i 's/^PKG_RELEASE:=.*/PKG_RELEASE:=1/' "$BUSYBOX_MAKEFILE"
+        
+        # Remove hash to prevent build failure due to checksum mismatch with new version
+        sed -i '/^PKG_HASH:=/d' "$BUSYBOX_MAKEFILE"
+        
+        log "BusyBox patched to version 1.36.1 in $BUSYBOX_MAKEFILE (Downgraded from 1.37.x)"
+    else
+        log "BusyBox version is not 1.37/1.37.0. Skipping downgrade."
+    fi
+else
+    warn "Could not find BusyBox Makefile. Skipping version check."
+fi
+
 # 6. Apply Customizations & Configs
 log "Applying custom configurations..."
 PREV_CONFIG="${CUSTOM_FILES_DIR}/WRX36/bin/extra/configs/.config"
