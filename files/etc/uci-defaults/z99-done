@@ -10,22 +10,6 @@ fi
 # --- MARK AS DONE ---
 touch /etc/first_boot_done
 
-# --- NETDATA HANDLING ---
-# 1. Disable/Stop on First Boot (Save CPU now)
-/etc/init.d/netdata stop
-/etc/init.d/netdata disable
-
-# 2. Enable Delayed Start for Future Boots via rc.local
-# We keep the service 'disabled' in init.d so it doesn't auto-start instantly.
-# Instead, rc.local will trigger it after a 60s delay.
-grep -q "netdata" /etc/rc.local || {
-    sed -i '/exit 0/d' /etc/rc.local
-    echo "" >> /etc/rc.local
-    echo "# Delayed Netdata start to prevent boot CPU starvation" >> /etc/rc.local
-    echo "(sleep 60; /etc/init.d/netdata start) &" >> /etc/rc.local
-    echo "exit 0" >> /etc/rc.local
-}
-
 # --- LOGGING ---
 logger -p notice -t luci-defaults "First boot setup complete. Rebooting..."
 

@@ -1,0 +1,29 @@
+#!/bin/sh
+
+# 1. IMMEDIATE CPU RESCUE: Stop and Disable Netdata
+# Netdata starts early (S50) and starves the system during first boot config.
+# We kill it immediately so the rest of the uci-defaults can run smoothly.
+if [ -f /etc/init.d/netdata ]; then
+    /etc/init.d/netdata stop
+    /etc/init.d/netdata disable
+fi
+
+# 2. Fix Collectd Errors (Log Spam)
+# Your logs show collectd failing because /tmp/rrd doesn't exist yet.
+# Creating it here stops the log spam and IO thrashing.
+mkdir -p /tmp/rrd
+
+# 3. Setup Delayed Netdata Start in rc.local
+# This ensures Netdata starts safely 60s after boot on future restarts.
+grep -q "netdata" /etc/rc.local || {
+    # Remove existing exit 0
+    sed -i '/exit 0/d' /etc/rc.local
+    
+    # Append delayed start logic
+    echo "" >> /etc/rc.local
+    echo "# Delayed Netdata start to prevent boot CPU starvation" >> /etc/rc.local
+    echo "(sleep 60; /etc/init.d/netdata start) &" >> /etc/rc.local
+    echo "exit 0" >> /etc/rc.local
+}
+
+exit 0
