@@ -26,10 +26,24 @@ logger -p notice -t luci-defaults "First boot setup complete. Applying changes l
 /etc/init.d/odhcpd reload
 /etc/init.d/cron restart
 
-# 3. Apply System Control tweaks (sysctl)
+# 3. Restart NSS Subsystem (CRITICAL for z98-custom tweaks)
+# z98-custom modifies qca-nss-ecm config and fixes qca-nss-mirred.
+# We must restart them to apply the 'acceleration_engine=nss' settings.
+if [ -x /etc/init.d/qca-nss-mirred ]; then
+    /etc/init.d/qca-nss-mirred restart
+fi
+
+if [ -x /etc/init.d/qca-nss-ecm ]; then
+    # Restart ECM to pick up the disable_gro and engine settings
+    /etc/init.d/qca-nss-ecm restart
+    # Flush current connections so they get picked up by the new engine
+    echo 1 > /sys/kernel/debug/ecm/ecm_db/defunct_all
+fi
+
+# 4. Apply System Control tweaks (sysctl)
 sysctl -p
 
-# 4. Manually trigger SMP Affinity
+# 5. Manually trigger SMP Affinity
 # Normally this runs at S99 (boot), but since we aren't rebooting, 
 # we trigger it now to balance IRQs.
 if [ -x /etc/init.d/smp_affinity ]; then
