@@ -100,7 +100,7 @@ cd openwrt-build
   /bin/sh -c "apk add --no-cache openssh-client && ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa admin@192.168.216.1"
 > ```
 
-The router will boot two times: once it applies the defaults it will boot again. Just wait patiently until 10.0.0.1 becomes availble.
+The router doesn't requires an additional boot after a fresh firmware flash, since chances are done live, but if you want some peace of mind, you can always restart the thing manually.
 ---
 
 ## After booting
@@ -117,7 +117,21 @@ You may [test your buffebloat here](https://www.waveform.com/tools/bufferbloat),
 
 ### 3. NetData
 
-Disabled by default. Config is on `/etc/netdata/netdata.conf`.
+Disabled by default. 
+
+You will need to SSH your way in and run `system netdata enable && system netdata start` if you want it for specific reasons.
+
+Config is on `/etc/netdata/netdata.conf`. 
+
+### 4. Accessing admin/SSH from WAN
+
+If you have set this router as part of a larger network or a bridge or something, you will find that you cannot access the router from the WAN port. I added some firewall rules, that are disabled by default, to allow just that, as `Allow-{SSH|HTTP|HTTPS}-WAN`.
+
+You can enable these at Network → Firewall → Traffic Rules.
+
+### 5. Chrony is hotplug
+
+Chrony doesn't run at boot, but rather, it starts once the WAN and Internet is brought up.
 
 ---
 
@@ -135,8 +149,8 @@ Check the error logs, upload it to an AI and check what fix returns.
 
 Do not. Asks for a non-invansive fix. Post it here or make it a PR to integrate it to the script.
 
-* **Why `unbound` uses around 250MB of RAM?**
+* **Why `unbound` uses around 250MB of RAM!?**
 
 Because Adblock loads its source list of banned ip into unbound, hence why it consumes so much RAM. Still, around 50% of RAM left for anything.
 
-* **
+If you're using this router behind a network as a bridge or something, you may disable Adblock since this would be handled upstream.
