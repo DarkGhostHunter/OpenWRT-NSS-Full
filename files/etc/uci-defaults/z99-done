@@ -11,11 +11,31 @@ fi
 touch /etc/first_boot_done
 
 # --- LOGGING ---
-logger -p notice -t luci-defaults "First boot setup complete. Rebooting..."
+logger -p notice -t luci-defaults "First boot setup complete. Applying changes live..."
 
-# --- SCHEDULE REBOOT ---
-# Sync ensures the marker is written to flash.
-# Sleep 10s gives the OS time to handle the script deletion.
-{ sync; sleep 10; reboot; } &
+# --- APPLY SETTINGS WITHOUT REBOOT ---
+
+# 1. Reload the UCI configuration (notify procd)
+/sbin/reload_config
+
+# 2. Restart/Reload Critical Services
+# Network might flicker, but it won't be a full reboot
+/etc/init.d/network reload
+/etc/init.d/firewall restart
+/etc/init.d/dnsmasq reload
+/etc/init.d/odhcpd reload
+/etc/init.d/cron restart
+
+# 3. Apply System Control tweaks (sysctl)
+sysctl -p
+
+# 4. Manually trigger SMP Affinity
+# Normally this runs at S99 (boot), but since we aren't rebooting, 
+# we trigger it now to balance IRQs.
+if [ -x /etc/init.d/smp_affinity ]; then
+    /etc/init.d/smp_affinity start
+fi
+
+logger -p notice -t luci-defaults "Live configuration application complete."
 
 exit 0
