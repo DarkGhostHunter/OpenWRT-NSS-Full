@@ -3,21 +3,15 @@
 # ------------------------------------------------------------------
 # SYSTEM & KERNEL TUNING
 # ------------------------------------------------------------------
-{
-    # Fix nlbwmon warning and TCP window check
-    grep -q 'net.core.rmem_max' < /etc/sysctl.conf || echo 'net.core.rmem_max=524288' >> /etc/sysctl.conf
-    grep -q 'net.netfilter.nf_conntrack_tcp_no_window_check' < /etc/sysctl.conf || echo 'net.netfilter.nf_conntrack_tcp_no_window_check=1' >> /etc/sysctl.conf
-    sysctl -p
-}
+# Fix nlbwmon warning and TCP window check
+grep -q 'net.core.rmem_max' < /etc/sysctl.conf || echo 'net.core.rmem_max=524288' >> /etc/sysctl.conf
+grep -q 'net.netfilter.nf_conntrack_tcp_no_window_check' < /etc/sysctl.conf || echo 'net.netfilter.nf_conntrack_tcp_no_window_check=1' >> /etc/sysctl.conf
+sysctl -p
 
 # ------------------------------------------------------------------
-# UNBOUND DNS OPTIMIZATION (Consolidated Fixes)
+# UNBOUND DNS OPTIMIZATION
 # ------------------------------------------------------------------
-# We apply these settings LAST to ensure they override z8-unbound
-{ [ -f /etc/config/unbound ] && sed s/'[[:space:]]'//g /etc/config/unbound |
-grep -qE '.+' && [ -f /rom/etc/config/unbound ] && sed s/'[[:space:]]'//g /rom/etc/config/unbound | grep -qE '.+' && !
-[ "$(cat /etc/config/unbound)" = "$(cat /rom/etc/config/unbound)" ]; } || {
-
+# Force apply settings (removed complex guards that were causing skips)
 touch /etc/config/unbound
 
 uci batch <<'EOF'
@@ -40,18 +34,9 @@ set unbound.ub_main.subnetcache='0'
 EOF
 uci commit unbound
 
-# Restart Unbound to apply these fixes immediately
-# Nope, do not restart unbound since we will restart the router anyway.
-# /etc/init.d/unbound restart
-}
-
 # ------------------------------------------------------------------
 # USTEER ROAMING STABILITY
 # ------------------------------------------------------------------
-{ [ -f /etc/config/usteer ] && sed s/'[[:space:]]'//g /etc/config/usteer |
-grep -qE '.+' && [ -f /rom/etc/config/usteer ] && sed s/'[[:space:]]'//g /rom/etc/config/usteer | grep -qE '.+' && !
-[ "$(cat /etc/config/usteer)" = "$(cat /rom/etc/config/usteer)" ]; } || {
-
 touch /etc/config/usteer
 
 uci batch <<'EOF'
@@ -60,15 +45,10 @@ set usteer.@usteer[0].band_steering_threshold='5'
 set usteer.@usteer[0].band_steering_interval='120000'
 EOF
 uci commit usteer
-}
 
 # ------------------------------------------------------------------
 # WIRELESS SECURITY TWEAKS
 # ------------------------------------------------------------------
-{ [ -f /etc/config/wireless ] && sed s/'[[:space:]]'//g /etc/config/wireless |
-grep -qE '.+' && [ -f /rom/etc/config/wireless ] && sed s/'[[:space:]]'//g /rom/etc/config/wireless | grep -qE '.+' && !
-[ "$(cat /etc/config/wireless)" = "$(cat /rom/etc/config/wireless)" ]; } || {
-
 touch /etc/config/wireless
 
 uci batch <<'EOF'
@@ -76,6 +56,5 @@ set wireless.lan_radio0.wpa_group_rekey='86400'
 set wireless.lan_radio1.wpa_group_rekey='86400'
 EOF
 uci commit wireless
-}
 
 exit 0
