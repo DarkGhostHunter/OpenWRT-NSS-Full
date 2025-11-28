@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# Only run when an interface comes UP
+[ "$ACTION" = "ifup" ] || exit 0
+
+# Only run for WAN interfaces (IPv4 or IPv6)
+if [ "$INTERFACE" = "wan" ] || [ "$INTERFACE" = "wan6" ]; then
+    # Check if the tool exists and runs it
+    if [ -x /usr/sbin/chrony-hotplug ]; then
+        logger -t chrony-hotplug "Interface $INTERFACE is up. Triggering time sync..."
+        /usr/sbin/chrony-hotplug
+    fi
+fi
