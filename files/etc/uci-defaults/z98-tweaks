@@ -41,7 +41,8 @@ EOF
 uci commit unbound
 
 # Restart Unbound to apply these fixes immediately
-/etc/init.d/unbound restart
+# Nope, do not restart unbound since we will restart the router anyway.
+# /etc/init.d/unbound restart
 }
 
 # ------------------------------------------------------------------

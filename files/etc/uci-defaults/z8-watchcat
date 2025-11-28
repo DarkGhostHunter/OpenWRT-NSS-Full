@@ -4,13 +4,11 @@
 
 touch /etc/config/watchcat
 
-# Watch Google DNS and Cloudflare DNS. If these fail, we will understand there is no Internet and we will only
-# restart the wan interface instead of the whole router. 
+# Watch Google DNS and Cloudflare DNS. If these fail, we will understand there is no
+# Internet and we will only restart the wan interface instead of the whole router. 
 
 uci batch <<'EOF'
 delete watchcat.@watchcat[0]
-
-# Watch Google DNS, if these fail we're out of Internet. Wait 15 to restart the interface.
 add watchcat watchcat
 set watchcat.@watchcat[0]=watchcat
 set watchcat.@watchcat[0].mode='restart_iface'
@@ -22,10 +20,7 @@ set watchcat.@watchcat[0].pingperiod='30s'
 set watchcat.@watchcat[0].pingsize='standard'
 set watchcat.@watchcat[0].interface='@wan'
 set watchcat.@watchcat[0].mmifacename='wan'
-
 delete watchcat.@watchcat[1]
-
-# Watch Cloudflare DNS. If these fail
 add watchcat watchcat
 set watchcat.@watchcat[0]=watchcat
 set watchcat.@watchcat[0].mode='restart_iface'
@@ -37,7 +32,7 @@ set watchcat.@watchcat[0].pingperiod='30s'
 set watchcat.@watchcat[0].pingsize='standard'
 set watchcat.@watchcat[0].interface='@wan'
 set watchcat.@watchcat[0].mmifacename='wan'
-
+EOF
 uci commit watchcat
 }
 exit 0
