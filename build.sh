@@ -400,6 +400,18 @@ if [ -n "$ARIA2_MAKEFILE" ]; then
     find build_dir -name "aria2-*" -type d -exec rm -rf {} + 2>/dev/null || true
 fi
 
+# 5.4 Disable Netdata on First Boot
+
+# Netdata (S50) starts before uci-defaults (S95), causing CPU starvation
+# and boot loops. We remove the autostart link from the build tree.
+# It will be managed by rc.local (delayed start) later.
+log "Disabling Netdata autostart in firmware image..."
+rm -f "${BUILD_DIR}/files/etc/rc.d/S*netdata" 2>/dev/null
+
+# Also attempt to remove it from the package installation target if it exists there
+# (Adjust path pattern if your build_dir structure differs, but this covers most)
+find "${BUILD_DIR}/build_dir" -name "S*netdata" -type l -delete 2>/dev/null
+
 # 6. Apply Customizations & Configs
 log "Applying custom configurations..."
 PREV_CONFIG="${CUSTOM_FILES_DIR}/WRX36/bin/extra/configs/.config"
