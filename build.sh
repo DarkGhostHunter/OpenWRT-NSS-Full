@@ -401,16 +401,29 @@ if [ -n "$ARIA2_MAKEFILE" ]; then
 fi
 
 # 5.4 Disable Netdata on First Boot
+# ---------------------------------
+# PROBLEM: Netdata usually installs with START=50. uci-defaults run at S95.
+# This causes Netdata to start, hog CPU, and possibly crash before uci-defaults
+# can run 'disable'.
+#
+# SOLUTION: Patch the upstream init script source code to START=99.
+# 1. Image builds with netdata at S99 (Late Boot).
+# 2. Boot starts. S95 (uci-defaults) runs.
+# 3. 00-setup-resources runs 'netdata disable', REMOVING the S99 symlink.
+# 4. Boot continues. S99 is reached. Netdata link is gone. It never starts.
+# 5. User can 'service netdata enable' later if they want it.
 
-# Netdata (S50) starts before uci-defaults (S95), causing CPU starvation
-# and boot loops. We remove the autostart link from the build tree.
-# It will be managed by rc.local (delayed start) later.
-log "Disabling Netdata autostart in firmware image..."
-rm -f "${BUILD_DIR}/files/etc/rc.d/S*netdata" 2>/dev/null
+log "Patching Netdata init script to START=99 (Late Boot) to prevent resource hogging..."
+# Locate the init script in the feeds directory
+NETDATA_INIT=$(find feeds/packages -name netdata.init | head -n 1)
 
-# Also attempt to remove it from the package installation target if it exists there
-# (Adjust path pattern if your build_dir structure differs, but this covers most)
-find "${BUILD_DIR}/build_dir" -name "S*netdata" -type l -delete 2>/dev/null
+if [ -f "$NETDATA_INIT" ]; then
+    # Use sed to change START=50 to START=99
+    sed -i 's/START=50/START=99/g' "$NETDATA_INIT"
+    log "Successfully patched $NETDATA_INIT"
+else
+    warn "Could not find netdata.init in feeds/packages. Netdata might still hog boot resources."
+fi
 
 # 6. Apply Customizations & Configs
 log "Applying custom configurations..."
