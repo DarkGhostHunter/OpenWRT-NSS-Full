@@ -26,10 +26,10 @@ show_menu() {
     echo "--- NETWORK MODE ---"
     echo "4. Convert to Managed Switch / Dumb AP"
     echo "   Bridges WAN to LAN. Gets IP from upstream router."
-    echo "   Disables local DHCP server and Routing."
+    echo "   Disables local DHCP server, DNS (Unbound), and Routing."
     echo ""
     echo "5. Revert to Router Mode (Factory Defaults)"
-    echo "   Restores NAT, Routing, and Static IP (10.0.0.1)."
+    echo "   Restores NAT, Routing, DHCP Server, DNS, and Static IP (10.0.0.1)."
     echo ""
     echo "0. Exit"
     echo ""
@@ -143,7 +143,7 @@ enable_switch_mode() {
     echo "  1. Bridge WAN port to LAN (br-lan)."
     echo "  2. Disable WAN routing."
     echo "  3. Set LAN to DHCP Client (gets IP from upstream)."
-    echo "  4. Disable local DHCP server."
+    echo "  4. Disable local DHCP server, DNS (Unbound), and Odhcpd."
     echo -e "${RED}WARNING: You will lose connection immediately!${NC}"
     echo -e "Reconnect using the new IP assigned by your main router."
     
@@ -175,15 +175,20 @@ enable_switch_mode() {
     uci commit network
     uci commit dhcp
     
+    echo "Disabling Unbound and Odhcpd (Not needed in AP mode)..."
+    /etc/init.d/unbound stop
+    /etc/init.d/unbound disable
+    /etc/init.d/odhcpd stop
+    /etc/init.d/odhcpd disable
+
     echo "Applying network changes... Goodbye!"
-    /etc/init.d/dnsmasq restart
     /etc/init.d/network restart
     exit 0
 }
 
 revert_router_mode() {
     echo -e "\n${YELLOW}Reverting to Router Mode...${NC}"
-    echo "This will restore Static IP 10.0.0.1 and enable NAT/DHCP."
+    echo "This will restore Static IP 10.0.0.1 and enable NAT/DHCP/DNS."
     
     read -p "Are you sure? (y/N): " confirm
     if [ "$confirm" != "y" ]; then return; fi
@@ -209,8 +214,13 @@ revert_router_mode() {
     uci commit network
     uci commit dhcp
     
+    echo "Re-enabling Unbound and Odhcpd..."
+    /etc/init.d/unbound enable
+    /etc/init.d/unbound start
+    /etc/init.d/odhcpd enable
+    /etc/init.d/odhcpd start
+
     echo "Applying changes... IP will be 10.0.0.1"
-    /etc/init.d/dnsmasq restart
     /etc/init.d/network restart
     exit 0
 }
