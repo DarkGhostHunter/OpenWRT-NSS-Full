@@ -4,6 +4,7 @@
 # We must disable it regardless of whether it's running or not.
 # This removes the S50 startup link so it won't start later in this boot.
 if [ -f /etc/init.d/netdata ]; then
+    /etc/init.d/netdata stop
     /etc/init.d/netdata disable
 fi
 
@@ -16,18 +17,5 @@ fi
 # 3. Fix Collectd Errors
 # Create the missing directory to stop the log spam
 mkdir -p /tmp/rrd
-
-# 4. Setup Delayed Netdata Start in rc.local
-# This ensures Netdata starts safely 60s after boot on future restarts.
-grep -q "netdata" /etc/rc.local || {
-    # Remove existing exit 0
-    sed -i '/exit 0/d' /etc/rc.local
-    
-    # Append delayed start logic
-    echo "" >> /etc/rc.local
-    echo "# Delayed Netdata start to prevent boot CPU starvation" >> /etc/rc.local
-    echo "(sleep 60; /etc/init.d/netdata start) &" >> /etc/rc.local
-    echo "exit 0" >> /etc/rc.local
-}
 
 exit 0

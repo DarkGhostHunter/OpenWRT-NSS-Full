@@ -11,6 +11,7 @@ It's uses on [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openw
  - Port 4 ready for dumb AP (as a bridge for IoT devices), that can be changed into a normal port later.
  - Many packages like AdBlock, Usteer (for making devices roam between 5GHz and 2.4GHz antennas seamlessly) and else.
  - Plex Media Server script (don't go overboard, this CPU is like a [Motorola Moto G5 Plus](https://www.gsmarena.com/motorola_moto_g5_plus-8453.php) from 2017).
+ - Comes with [NetData](), but disabled by default. If you're a data hoarder, you may enable it. Patience on the setup, it consumes all router resources, but eventually runs. Added configs to run on a router rather than a x86 rack.
 
 ## The ugly
 
