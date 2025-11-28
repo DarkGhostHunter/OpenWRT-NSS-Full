@@ -2,21 +2,36 @@
 
 # --- SAFETY CHECK (The Loop Breaker) ---
 # If this file exists, we have already run. Exit immediately.
-# This prevents infinite reboots if this script fails to self-delete.
-if [ -f /etc/first_boot_done ]; then
+if [ -f /etc/first_boot_done ];
+then
     exit 0
 fi
 
 # --- MARK AS DONE ---
-# Create the marker immediately so the check above works on next boot.
 touch /etc/first_boot_done
+
+# --- NETDATA HANDLING ---
+# 1. Disable/Stop on First Boot (Save CPU now)
+/etc/init.d/netdata stop
+/etc/init.d/netdata disable
+
+# 2. Enable Delayed Start for Future Boots via rc.local
+# We keep the service 'disabled' in init.d so it doesn't auto-start instantly.
+# Instead, rc.local will trigger it after a 60s delay.
+grep -q "netdata" /etc/rc.local || {
+    sed -i '/exit 0/d' /etc/rc.local
+    echo "" >> /etc/rc.local
+    echo "# Delayed Netdata start to prevent boot CPU starvation" >> /etc/rc.local
+    echo "(sleep 60; /etc/init.d/netdata start) &" >> /etc/rc.local
+    echo "exit 0" >> /etc/rc.local
+}
 
 # --- LOGGING ---
 logger -p notice -t luci-defaults "First boot setup complete. Rebooting..."
 
 # --- SCHEDULE REBOOT ---
 # Sync ensures the marker is written to flash.
-# Sleep 10s gives the OS time to handle the script deletion (which happens after exit 0).
+# Sleep 10s gives the OS time to handle the script deletion.
 { sync; sleep 10; reboot; } &
 
 exit 0
