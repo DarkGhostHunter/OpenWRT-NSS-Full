@@ -1,34 +1,22 @@
 #!/bin/sh
 
-# 1. PERMANENTLY PIN NETDATA TO CORE 0
-# Patch the init script so ANY start (manual or auto) is pinned to Core 0.
-# Core 0 = OS/Generic. Core 2/3 = WiFi/NSS. This prevents interference.
+# 1. ENSURE NETDATA IS DISABLED IN INIT SYSTEM
+# We only want it starting via rc.local, never S50.
+/etc/init.d/netdata disable
+
+# 2. PERMANENTLY PIN NETDATA TO CORE 0
+# This modifies the init script so that ANY time netdata starts 
+# (manually or automatically), it stays on Core 0.
 if [ -f /etc/init.d/netdata ]; then
+    # Check if we haven't already patched it
     if ! grep -q "taskset" /etc/init.d/netdata; then
+        # Inject taskset -c 0 before the binary execution
+        # Core 0 is your OS/Generic core (per smp_affinity), keeping Netdata off NSS/WiFi cores.
         sed -i "s|procd_set_param command /usr/sbin/netdata|procd_set_param command /usr/bin/taskset -c 0 /usr/sbin/netdata|g" /etc/init.d/netdata
     fi
 fi
 
-# 2. SETUP DELAYED START IN RC.LOCAL
-# We rely on rc.local to start Netdata 60s after boot.
-# This bypasses the boot-time CPU crunch entirely.
-grep -q "netdata" /etc/rc.local || {
-    # Remove existing exit 0
-    sed -i '/exit 0/d' /etc/rc.local
-    
-    echo "" >> /etc/rc.local
-    echo "# Delayed Netdata start (Pinned to Core 0)" >> /etc/rc.local
-    # Note: We use the init script to start it so procd manages it, 
-    # but the init script is now patched to use taskset automatically.
-    echo "(sleep 60; /etc/init.d/netdata start) &" >> /etc/rc.local
-    echo "exit 0" >> /etc/rc.local
-}
-
-# 3. ENSURE NETDATA IS DISABLED IN INIT SYSTEM
-# We only want it starting via rc.local, never S50.
-/etc/init.d/netdata disable
-
-# 4. FIX COLLECTD LOG SPAM
+# 3. FIX COLLECTD LOG SPAM
 mkdir -p /tmp/rrd
 
 exit 0
