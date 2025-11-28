@@ -442,6 +442,9 @@ if [ -f "$BUSYBOX_MAKEFILE" ]; then
         
         # Explicitly set the hash to be skipped
         sed -i 's/^PKG_HASH:=.*/PKG_HASH:=skip/' "$BUSYBOX_MAKEFILE"
+
+        # Use OpenWRT mirror first, since BusyBox site sometimes goes down
+        sed -i 's|^PKG_SOURCE_URL:=.*|PKG_SOURCE_URL:=https://sources.openwrt.org/ https://www.busybox.net/downloads/|' "$BUSYBOX_MAKEFILE"
         
         log "BusyBox patched to version 1.36.1 in $BUSYBOX_MAKEFILE (Downgraded from 1.37.x)"
     else
