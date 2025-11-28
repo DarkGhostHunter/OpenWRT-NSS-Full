@@ -1,21 +1,29 @@
 #!/bin/sh
 
 # 1. DISABLE NETDATA (Critical Fix)
-# We must disable it regardless of whether it's running or not.
-# This removes the S50 startup link so it won't start later in this boot.
 if [ -f /etc/init.d/netdata ]; then
     /etc/init.d/netdata stop
     /etc/init.d/netdata disable
 fi
 
-# 2. Kill if running (Safety Net)
-# In case we are in a loop or manual restart, kill any existing instance.
+# 2. FORCE KILL (Safety Net)
 if pidof netdata >/dev/null; then
     killall -9 netdata
 fi
 
-# 3. Fix Collectd Errors
-# Create the missing directory to stop the log spam
+# 3. PERMANENTLY PIN NETDATA TO CORE 0
+# This modifies the init script so that ANY time netdata starts 
+# (manually or automatically), it stays on Core 0.
+if [ -f /etc/init.d/netdata ]; then
+    # Check if we haven't already patched it
+    if ! grep -q "taskset" /etc/init.d/netdata; then
+        # Inject taskset -c 0 before the binary execution
+        # Core 0 is your OS/Generic core (per smp_affinity), keeping Netdata off NSS/WiFi cores.
+        sed -i "s|procd_set_param command /usr/sbin/netdata|procd_set_param command /usr/bin/taskset -c 0 /usr/sbin/netdata|g" /etc/init.d/netdata
+    fi
+fi
+
+# 4. Fix Collectd Errors
 mkdir -p /tmp/rrd
 
 exit 0

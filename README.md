@@ -11,7 +11,7 @@ It's uses on [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openw
  - Port 4 ready for dumb AP (as a bridge for IoT devices), that can be changed into a normal port later.
  - Many packages like AdBlock, Usteer (for making devices roam between 5GHz and 2.4GHz antennas seamlessly) and else.
  - Plex Media Server script (don't go overboard, this CPU is like a [Motorola Moto G5 Plus](https://www.gsmarena.com/motorola_moto_g5_plus-8453.php) from 2017).
- - Comes with [NetData](), but disabled by default. If you're a data hoarder, you may enable it. Patience on the setup, it consumes all router resources, but eventually runs. Added configs to run on a router rather than a x86 rack.
+ - Comes with [NetData](), but disabled by default. If you're a data hoarder, you may enable it. Patience on the setup, it consumes all router resources, but eventually runs. Added configs to run on a router rather than a x86 rack. BTW, it's pinned single-threaded to Core 0, so don't go overboard.
 
 ## The ugly
 
@@ -83,10 +83,10 @@ cd openwrt-build
 
 > [!NOTE]
 >
-> If it doesn't work, execute `chmod +x build.sh` to make the script executable. 
+> If it doesn't work, execute `chmod +x build.sh` to make the script executable.
 
 
-4. Grab a cup of coffee and be ready to dive into the never-ending oddisey of building a custom OpenWRT firmware for sake of pErFoRmAnCe.
+4. Grab a cup of coffee and be ready to dive into the never-ending oddisey of building a custom OpenWRT firmware for sake of _pErFoRmAnCe_.
 
 5. Follow OpenWRT instructions to [flash your device](https://openwrt.org/toh/dynalink/dl-wrx36), or do the usual _SysUpgrade_.
 
@@ -114,6 +114,10 @@ You will probably want to change both your WiFi SSID on both antennas into somet
 If you're a _heavy user_, you may want to run `speedtest_to_sqm`. It's a bash script that _should_ update SQM scripts depending on your connection download and upload speeds.
 
 You may [test your buffebloat here](https://www.waveform.com/tools/bufferbloat), and if you get C/D/F grades, you will need to set this through the script or manually. Also consider using this on low-speed connections, or if you always need minimum latency at all times (while downloads/uploads take a small penalty).
+
+### 3. NetData
+
+Disabled by default. Config is on `/etc/netdata/netdata.conf`.
 
 ---
 
