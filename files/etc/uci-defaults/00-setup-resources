@@ -1,20 +1,31 @@
 #!/bin/sh
 
-# 1. FORCE KILL NETDATA
-# The standard stop command fails under high load. We must use killall -9.
-if pidof netdata >/dev/null; then
-    killall -9 netdata
+# 1. DISABLE NETDATA (Critical Fix)
+# We must disable it regardless of whether it's running or not.
+# This removes the S50 startup link so it won't start later in this boot.
+if [ -f /etc/init.d/netdata ]; then
     /etc/init.d/netdata disable
 fi
 
-# 2. Fix Collectd Errors
+# 2. Kill if running (Safety Net)
+# In case we are in a loop or manual restart, kill any existing instance.
+if pidof netdata >/dev/null; then
+    killall -9 netdata
+fi
+
+# 3. Fix Collectd Errors
+# Create the missing directory to stop the log spam
 mkdir -p /tmp/rrd
 
-# 3. Setup Delayed Netdata Start in rc.local
+# 4. Setup Delayed Netdata Start in rc.local
+# This ensures Netdata starts safely 60s after boot on future restarts.
 grep -q "netdata" /etc/rc.local || {
+    # Remove existing exit 0
     sed -i '/exit 0/d' /etc/rc.local
+    
+    # Append delayed start logic
     echo "" >> /etc/rc.local
-    echo "# Delayed Netdata start" >> /etc/rc.local
+    echo "# Delayed Netdata start to prevent boot CPU starvation" >> /etc/rc.local
     echo "(sleep 60; /etc/init.d/netdata start) &" >> /etc/rc.local
     echo "exit 0" >> /etc/rc.local
 }
