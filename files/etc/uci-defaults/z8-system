@@ -23,20 +23,26 @@ delete system.ntp
 set system.ntp=timeserver
 set system.ntp.enabled='0'
 
-delete system.led_wan_port_link_green
-set system.led_wan_port_link_green=led
-set system.led_wan_port_link_green.name='WAN-PORT-LINK-GREEN'
-set system.led_wan_port_link_green.sysfs='90000.mdio-1:1c:green:wan'
-set system.led_wan_port_link_green.trigger='netdev'
-set system.led_wan_port_link_green.mode='link 1000 link_2500'
-set system.led_wan_port_link_green.dev='wan'
-delete system.led_wan_port_link_yellow
-set system.led_wan_port_link_yellow=led
-set system.led_wan_port_link_yellow.name='WAN-PORT-LINK-YELLOW'
-set system.led_wan_port_link_yellow.sysfs='90000.mdio-1:1c:yellow:wan'
-set system.led_wan_port_link_yellow.trigger='netdev'
-set system.led_wan_port_link_yellow.mode='tx rx link_10 link_100'
-set system.led_wan_port_link_yellow.dev='wan'
+# --- LED Configuration ---
+# Hardware paths identified via ssh: /sys/class/leds/90000.mdio-1:1c:*
+
+delete system.led_wan_green
+set system.led_wan_green=led
+set system.led_wan_green.name='WAN-PORT-LINK-GREEN'
+# Exact sysfs path found on device:
+set system.led_wan_green.sysfs='90000.mdio-1:1c:green:wan'
+set system.led_wan_green.trigger='netdev'
+set system.led_wan_green.dev='wan'
+set system.led_wan_green.mode='link'
+
+delete system.led_wan_yellow
+set system.led_wan_yellow=led
+set system.led_wan_yellow.name='WAN-PORT-LINK-YELLOW'
+# Exact sysfs path found on device:
+set system.led_wan_yellow.sysfs='90000.mdio-1:1c:yellow:wan'
+set system.led_wan_yellow.trigger='netdev'
+set system.led_wan_yellow.dev='wan'
+set system.led_wan_yellow.mode='tx rx'
 
 delete system.@rngd[0]
 add system rngd
