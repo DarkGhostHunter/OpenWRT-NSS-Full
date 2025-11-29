@@ -71,4 +71,9 @@ if [ -f /etc/init.d/qca-nss-ecm ]; then
 	uci commit ecm
 fi
 
+# copy over ksmbd.conf.template if it doesn't exist
+if [ ! -f /etc/ksmbd/ksmbd.conf.template ] && [ -f /etc/ksmbd/ksmbd.conf.template.example ]; then
+    mv /etc/ksmbd/ksmbd.conf.template.example /etc/ksmbd/ksmbd.conf.template
+fi
+
 exit 0

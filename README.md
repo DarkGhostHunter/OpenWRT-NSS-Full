@@ -28,7 +28,7 @@ It's uses on [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openw
   * **[Aria2](https://aria2.github.io/):** Powerful & simple downloader, with headers and BitTorrent. Comes with [AriaNG](https://github.com/mayswind/AriaNg).
   * **[NetData](https://github.com/netdata/netdata):** Powerful, system data visualizer. [Configured to be lean](files/etc/netdata/netdata.conf). Pinned to CPU0. Disabled by default because heavy first boot.
   * **[Watchcat](https://openwrt.org/docs/guide-user/advanced/watchcat):** Restarts the WAN interface if Internet down.
-  * **[Easy SMB shares](files/etc/ksmbd/ksmbd.conf.template):** Robust, easy to use `ksmbd` template to mount your SSD/HDD/NVMe. Hardcoded `SMBUSER:SMBPASSWORD`.
+  * **[Easy SMB shares](files/etc/ksmbd/ksmbd.conf.template.example):** Robust, easy to use `ksmbd` template to mount your SSD/HDD/NVMe. Hardcoded `SMBUSER:SMBPASSWORD`.
 
 ### Build
 
