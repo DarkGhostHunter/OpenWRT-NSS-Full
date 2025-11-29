@@ -52,6 +52,7 @@ sysctl -p
 # we trigger it now to balance IRQs.
 if [ -x /etc/init.d/smp_affinity ]; then
     /etc/init.d/smp_affinity start
+    service qca-nss-drv restart
 fi
 
 logger -p notice -t luci-defaults "Live configuration application complete."
