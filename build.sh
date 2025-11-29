@@ -87,7 +87,7 @@ check_debian() {
 check_internet() {
     log "Checking Internet Connectivity..."
     if command -v curl &>/dev/null; then
-        if curl -s --head --request GET http://google.com | grep "200 OK" > /dev/null; then
+        if curl -s --head --request GET http://www.github.com | grep "200 OK" > /dev/null; then
             IS_ONLINE=true
         fi
     elif command -v ping &>/dev/null; then
