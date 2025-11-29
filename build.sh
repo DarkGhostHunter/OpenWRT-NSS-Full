@@ -470,6 +470,8 @@ add_package "e2fsprogs"
 add_package "dosfstools"
 add_package "f2fs-tools"
 add_package "luci-app-plexmediaserver"
+add_package "tailscale"
+add_package "zerotier"
 
 # Disable Vim
 sed -i '/CONFIG_PACKAGE_vim/d' .config

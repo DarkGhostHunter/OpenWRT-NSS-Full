@@ -5,13 +5,16 @@ This script builds OpenWRT from scratch for Dynalink DL-WRX36, with Network SubS
 It's uses on [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openwrt), and adds [jkool702 package improvements](https://github.com/jkool702/openwrt-custom-builds), like adding Plex Server. It was created mashing up a lot of AI like Claude, Grok, Gemini, Copilot and Mistral, a lot of trial-and-error, and credits.
 
 ## Features:
- - NSS Build, lowering the CPU burden.
+ - NSS Build + Kernel tweaks, freeing the CPU and making it more responsive.
  - `10.0.0.0` home network, `192.168.0.0` for IoT devices.
  - Adde Aria2 because sometimes you want to download something while you sleep.
+ - Tailscale (or Headscale) and Zerotier packages included (no luci-app tho).
  - Port 4 ready for dumb AP (as a bridge for IoT devices), that can be changed into a normal port later.
  - Many packages like AdBlock, Usteer (for making devices roam between 5GHz and 2.4GHz antennas seamlessly) and else.
  - Plex Media Server script (don't go overboard, this CPU is like a [Motorola Moto G5 Plus](https://www.gsmarena.com/motorola_moto_g5_plus-8453.php) from 2017).
- - Comes with [NetData](), but disabled by default. If you're a data hoarder, you may enable it. Patience on the setup, it consumes all router resources, but eventually runs. Added configs to run on a router rather than a x86 rack. BTW, it's pinned single-threaded to Core 0, so don't go overboard.
+ - Comes with [NetData](https://github.com/netdata/netdata), but disabled by default. If you're a data hoarder, you may enable it. Patience on the setup, it consumes all router resources, but eventually runs. Added configs to run on a router rather than a x86 rack. BTW, it's pinned single-threaded to Core 0, so don't go overboard.
+ - 
+
 
 ## The ugly
 
