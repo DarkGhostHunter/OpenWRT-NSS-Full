@@ -62,13 +62,6 @@ if [ -f /etc/init.d/qca-nss-mirred ]; then
 fi
 if [ -f /sbin/kmodloader ]; then
    ln -sf /sbin/kmodloader /sbin/insmod
-fi	
-
-# improve irq distrubution
-if [ -f /etc/init.d/qca-nss-drv ]; then
-	sed -i s/"set_affinity 'ppdu-end-interrupts-mac1' 1 1/set_affinity 'ppdu-end-interrupts-mac1' 3 1/" /etc/init.d/qca-nss-drv
-   # This may be the culprit for a boot loop, since the router will restart anyway.
-	# service qca-nss-drv restart
 fi
 
 # tweak ecm
