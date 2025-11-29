@@ -14,14 +14,14 @@ set_affinity() {
     # tr -d ':' removes the colon
     for irq in $(grep -i "$pattern" /proc/interrupts | awk '{print $1}' | tr -d ':'); do
         if [ -d "/proc/irq/$irq" ]; then
-            echo "Setting IRQ $irq ($pattern) to Mask $mask" > /dev/console
+            logger -p notice -t smp_affinity "Setting IRQ $irq ($pattern) to Mask $mask"
             echo "$mask" > "/proc/irq/$irq/smp_affinity"
         fi
     done
 }
 
 boot() {
-    echo "Running NSS SMP Affinity optimization..." > /dev/console
+    logger -p notice -t smp_affinity "Running NSS SMP Affinity optimization..."
 
     # --- STRATEGY ---
     # CPU0 (Mask 1): Reserved for OS, USB, and generic tasks. Keep network OFF this core.
@@ -47,5 +47,5 @@ boot() {
     set_affinity 8 "nss_queue"
     set_affinity 8 "nss_empty"
 
-    echo "NSS SMP Affinity applied." > /dev/console
+    logger -p notice -t smp_affinity "NSS SMP Affinity applied."
 }
