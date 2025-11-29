@@ -27,12 +27,6 @@ fi
 if [ -f /etc/init.d/unbound ]; then
    mkdir -p /etc/unbound
    [ -f /etc/ssl/certs/ca-certificates.crt ] && ln -sf /etc/ssl/certs/ca-certificates.crt /etc/unbound/ca-certificates.crt
-   
-   # FIX: Only run anchor if we have a default gateway (internet access)
-   # Running this offline causes a massive timeout delay during first boot
-   # if route -n | grep -q "^0.0.0.0"; then
-   #    unbound-anchor -a /etc/unbound/root.key
-   # fi
 
    mkdir -p /var/lib/unbound
    chown -R unbound:unbound /etc/unbound /var/lib/unbound
