@@ -59,7 +59,7 @@ setup_uci() {
     fi
 
     # add (empty) config values for any missing UCI options
-    for UCI_opt in plex_library_dir plex_application_support_dir plex_browser_root plex_compressed_archive_path plex_tmp_dir plex_force_update_download_url plex_force_version plex_version plex_bin_dir; do
+    for UCI_opt in plex_library_dir plex_application_support_dir plex_browser_root plex_compressed_archive_path plex_tmp_dir plex_force_update_download_url plex_force_version plex_version plex_bin_dir plex_claim_code; do
         echo "${plex_UCI}" | grep -qF "${UCI_opt}" || /sbin/uci set plexmediaserver.@main[0].${UCI_opt}=''
     done
 
@@ -74,6 +74,7 @@ setup_uci() {
     PLEX_TMP_DIR="$(/sbin/uci get plexmediaserver.@main[0].plex_tmp_dir)"
     PLEX_VERSION="$(/sbin/uci get plexmediaserver.@main[0].plex_version)"
     PLEX_BIN_DIR="$(/sbin/uci get plexmediaserver.@main[0].plex_bin_dir)"
+    PLEX_CLAIM_CODE="$(/sbin/uci get plexmediaserver.@main[0].plex_claim_code)"
 
     # check UCI variables and set empty/invalid ones to default values
 
@@ -327,6 +328,10 @@ start() {
     export PLEX_VERSION="${PLEX_VERSION}"
     export PLEX_BROWSER_ROOT="${PLEX_BROWSER_ROOT}"
     export PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR="${PLEX_MEDIA_SERVER_APPLICATION_SUPPORT_DIR}"
+    # Export Plex Claim Code if it is set in UCI
+    if [[ -n "${PLEX_CLAIM_CODE}" ]]; then
+        export PLEX_CLAIM="${PLEX_CLAIM_CODE}"
+    fi
 
     cd "${PLEX_BIN_DIR}"
     "${PLEX_BIN_DIR}/Plex Media Server" &

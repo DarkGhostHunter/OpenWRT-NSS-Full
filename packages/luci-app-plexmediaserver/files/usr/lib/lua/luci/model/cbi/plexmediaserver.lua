@@ -68,6 +68,11 @@ ver.description = _("The version currently auto-detected by the startup script."
 force_ver = s:taboption("general", Value, "plex_force_version", _("Force Specific Version"))
 force_ver.description = _("Manually specify a version folder name to use (found in tmp directory). Leave empty to auto-detect highest version.")
 
+-- Plex Claim Code
+claim = s:taboption("general", Value, "plex_claim_code", _("Plex Claim Code"))
+claim.description = _("Optional. Use a claim code from https://plex.tv/claim to associate this server with your Plex account. This is only required for the first run.")
+claim.password = true -- Hides the code as asterisks
+claim.placeholder = "claim-xxxxxxxxxxxxxxxxxxxx"
 
 -- === TAB: PATHS ===
 browser_root = s:taboption("paths", Value, "plex_browser_root", _("Browser Root"))
