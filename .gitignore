@@ -1,6 +1,4 @@
 /workdir
-/packages
-/package
 /files
 *.log
 .idea
