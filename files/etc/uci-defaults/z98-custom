@@ -58,7 +58,8 @@ fi
 
 # fix insmod
 if [ -f /etc/init.d/qca-nss-mirred ]; then
-   grep -qF 'act_nssmirred.ko' </etc/init.d/qca-nss-mirred || sed -i s/'act_nssmirred'/'act_nssmirred.ko'/g /etc/init.d/qca-nss-mirred
+   # Improved sed command with proper quoting
+   grep -qF 'act_nssmirred.ko' /etc/init.d/qca-nss-mirred || sed -i 's/act_nssmirred/act_nssmirred.ko/g' /etc/init.d/qca-nss-mirred
 fi
 if [ -f /sbin/kmodloader ]; then
    ln -sf /sbin/kmodloader /sbin/insmod
