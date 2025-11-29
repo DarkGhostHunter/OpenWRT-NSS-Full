@@ -17,7 +17,7 @@ It's uses on [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openw
   * **`192.168.0.0`:** IoT Network. No router access, only Internet. Isolated. Home Network can reach it, not viceversa.
   * **LAN4 for IoT:** For IoT Hubs (Nest, Hue Bridge, HomePod, Alexa, etc.). Connected to IoT network. Can be _restored_ to normal LAN.
   * **[Adblock](https://github.com/openwrt/packages/blob/master/net/adblock/files/README.md)**: Because.
-  * **[Tailscale](https://tailscale.com/) & [Zerotier](https://www.zerotier.com/)**: For private networks. These do not come with LUCI panels, but shouldn't be difficult to set up once via SSH.
+  * **[Tailscale](https://tailscale.com/) & [Zerotier](https://www.zerotier.com/)**: For your own custom private network. Requires manual UCI config.
   * **[`configure-firewall`](files/usr/bin/configure-firewall):** One-shot shell script to change between Router and Managed Switch.
   * **[`speedtest-to-sqm`](files/usr/bin/speedtest-sqm):** Configures SQM rules avoid [unstable Internet on heavy usage](https://www.waveform.com/tools/bufferbloat).
   * **[`speedtest-netperf`](files/usr/bin/speedtest-netperf):** Self-test for network.
@@ -128,6 +128,6 @@ If you're using this router behind a network as a bridge or DNS is handled elsew
 
 * **Help! My router restarts every 15 minutes or so!**
 
-It's because Watchcat configuration. It will restart the WAN interface there is no Internet connection for 15 minutes.
+It's because Watchcat configuration. It will restart the **WAN interface** there is no Internet connection for 15 minutes.
 
 If you are offline, disable it through the LUCI panel, via SSH (`/etc/init.d/watchcat disable && /etc/init.d/watchcat stop`) or just delete the rules.
