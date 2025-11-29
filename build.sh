@@ -33,6 +33,9 @@ TMPFS_SIZE="52g"
 MAKE_JOBS=""
 VERBOSE_BUILD=false
 RUN_MENUCONFIG=false 
+# Global Network State
+IS_ONLINE=false
+UPDATE_SOURCES=false
 
 # ==============================================================================
 # VISUAL HELPER FUNCTIONS
@@ -81,24 +84,48 @@ check_debian() {
     fi
 }
 
+check_internet() {
+    log "Checking Internet Connectivity..."
+    if command -v curl &>/dev/null; then
+        if curl -s --head --request GET http://google.com | grep "200 OK" > /dev/null; then
+            IS_ONLINE=true
+        fi
+    elif command -v ping &>/dev/null; then
+        if ping -q -c 1 -W 1 8.8.8.8 >/dev/null 2>&1; then
+            IS_ONLINE=true
+        fi
+    fi
+
+    if [ "$IS_ONLINE" = true ]; then
+        log "Status: ONLINE"
+    else
+        warn "Status: OFFLINE. Build will proceed using local caches only."
+    fi
+}
+
 install_dependencies() {
     log "Installing/Checking dependencies and ccache..."
-    
+
     local SUDO=""
     if [ "$EUID" -ne 0 ]; then SUDO="sudo"; fi
 
-    $SUDO apt-get update
-    $SUDO apt-get install -y build-essential clang flex bison g++ gawk \
-        gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev \
-        python3-setuptools rsync swig unzip zlib1g-dev file wget \
-        python3 python3-dev python3-pip libpython3-dev curl libelf-dev \
-        xsltproc libxml-parser-perl patch diffutils findutils quilt zstd \
-        libprotobuf-c1 libprotobuf-c-dev protobuf-c-compiler ccache
+    # Only attempt install if online
+    if [ "$IS_ONLINE" = true ]; then
+        $SUDO apt-get update
+        $SUDO apt-get install -y build-essential clang flex bison g++ gawk \
+            gcc-multilib g++-multilib gettext git libncurses-dev libssl-dev \
+            python3-setuptools rsync swig unzip zlib1g-dev file wget \
+            python3 python3-dev python3-pip libpython3-dev curl libelf-dev \
+            xsltproc libxml-parser-perl patch diffutils findutils quilt zstd \
+            libprotobuf-c1 libprotobuf-c-dev protobuf-c-compiler ccache
+    else
+        warn "Offline: Skipping dependency install. Ensure environment is prepared."
+    fi
 }
 
 setup_tmpfs() {
     log "Checking memory for Tmpfs..."
-    
+
     local total_mem_kb=$(grep MemTotal /proc/meminfo | awk '{print $2}')
     local total_mem_gb=$((total_mem_kb / 1024 / 1024))
 
@@ -110,10 +137,10 @@ setup_tmpfs() {
         else
             log "Memory >= ${RAM_THRESHOLD_GB}GB. Mounting ${TMPFS_SIZE} tmpfs to ${WORK_DIR}..."
             mkdir -p "${WORK_DIR}"
-            
+
             local SUDO=""
             if [ "$EUID" -ne 0 ]; then SUDO="sudo"; fi
-            
+
             $SUDO mount -t tmpfs -o size=${TMPFS_SIZE} tmpfs "${WORK_DIR}"
             $SUDO chown "$(id -u):$(id -g)" "${WORK_DIR}"
         fi
@@ -128,7 +155,7 @@ configure_ccache() {
     mkdir -p "${HOME}/.ccache"
     export CCACHE_DIR="${HOME}/.ccache"
     if ! command -v ccache &> /dev/null; then
-        error "ccache not found despite installation attempt."
+        warn "ccache not found. Proceeding without it."
     fi
 }
 
@@ -136,20 +163,11 @@ manage_git() {
     local repo_url=$1
     local target_dir=$2
     local branch=$3
-    local prompt_update=$4
+    # prompt_update argument is deprecated in favor of global state
     local target_branch="${branch:-main}"
-    
-    local do_update=true
 
     if [ -d "${target_dir}/.git" ]; then
-        if [ "$prompt_update" = true ]; then
-            read -p "Repo at ${target_dir} exists. Update it? [y/N]: " update_choice
-            if [[ ! "$update_choice" =~ ^[Yy]$ ]]; then
-                do_update=false
-            fi
-        fi
-
-        if [ "$do_update" = true ]; then
+        if [ "$UPDATE_SOURCES" = true ] && [ "$IS_ONLINE" = true ]; then
             log "Updating existing repo at ${target_dir}..."
             cd "${target_dir}"
             log "Fetching origin/${target_branch}..."
@@ -159,15 +177,19 @@ manage_git() {
             }
             git reset --hard "origin/${target_branch}"
         else
-            log "Skipping update for ${target_dir}."
+            log "Skipping update for ${target_dir} (Offline or User declined)."
         fi
     elif [ -d "${target_dir}" ]; then
         # Directory exists but is NOT a git repo
-        error "Directory '${target_dir}' exists but is not a git repository. Personalized build detected/Invalid state. Please check documentation."
+        error "Directory '${target_dir}' exists but is not a git repository. Invalid state."
     else
-        log "Cloning ${repo_url} to ${target_dir}..."
-        git clone --depth 1 --branch "${target_branch}" --single-branch --recurse-submodules \
-            "${repo_url}" "${target_dir}"
+        if [ "$IS_ONLINE" = true ]; then
+            log "Cloning ${repo_url} to ${target_dir}..."
+            git clone --depth 1 --branch "${target_branch}" --single-branch --recurse-submodules \
+                "${repo_url}" "${target_dir}"
+        else
+            error "Directory ${target_dir} is missing and we are OFFLINE. Cannot clone."
+        fi
     fi
 }
 
@@ -177,7 +199,21 @@ manage_git() {
 
 interactive_setup() {
     log "Starting Interactive Configuration..."
-    
+
+    # 0. Check Connectivity
+    check_internet
+
+    if [ "$IS_ONLINE" = true ]; then
+        read -p "Internet detected. Download/Update sources and feeds? [Y/n]: " update_choice
+        if [[ -z "$update_choice" || "$update_choice" =~ ^[Yy]$ ]]; then
+            UPDATE_SOURCES=true
+        else
+            UPDATE_SOURCES=false
+        fi
+    else
+        UPDATE_SOURCES=false
+    fi
+
     # 1. CPU Threads
     local cpu_threads=$(nproc)
     echo "Detected CPU Threads: $cpu_threads"
@@ -186,7 +222,7 @@ interactive_setup() {
     echo "2) 3/4 Threads ($((cpu_threads * 3 / 4)))"
     echo "3) 1/2 Threads ($((cpu_threads / 2)))"
     echo "4) Single Thread (1)"
-    
+
     read -p "Enter choice [1-4]: " job_choice
     case $job_choice in
         1) MAKE_JOBS=$((cpu_threads + 2)) ;;
@@ -210,7 +246,7 @@ interactive_setup() {
         VERBOSE_BUILD=false
     fi
 
-    # 3. Custom Files are now assumed to be in 'files/' directory. 
+    # 3. Custom Files are now assumed to be in 'files/' directory.
     # No population or prompt logic here as requested.
 
     # 4. Prepare Custom Packages
@@ -234,7 +270,7 @@ interactive_setup() {
 
     # 5. Update Firmware Repositories
     log "Checking Firmware Repositories..."
-    manage_git "$REPO_FIRMWARE" "$BUILD_DIR" "$BRANCH_FIRMWARE" true
+    manage_git "$REPO_FIRMWARE" "$BUILD_DIR" "$BRANCH_FIRMWARE"
     # Fantastic packages is inside build dir, so managed after firmware clone
 }
 
@@ -246,16 +282,16 @@ safe_make() {
     local target_desc="$1"
     shift
     local make_args=("$@")
-    
+
     local log_file="${BASE_DIR}/build_${target_desc// /_}.log"
     local err_file="${BASE_DIR}/build_${target_desc// /_}_errors.log"
-    
+
     log "Running Make: ${target_desc} (-j${MAKE_JOBS})..."
     echo "Full log: $log_file"
-    
+
     local status=0
     local cmd="make -j${MAKE_JOBS} ${make_args[*]}"
-    
+
     if [ "$VERBOSE_BUILD" = true ]; then
         cmd="$cmd V=s"
         ( set -o pipefail; eval "$cmd" 2>&1 | tee "$log_file" ) || status=$?
@@ -265,7 +301,7 @@ safe_make() {
         spinner $pid
         wait $pid || status=$?
     fi
-    
+
     if [ -f "$log_file" ]; then
         grep -iE ": error:|: fatal error:|: undefined reference to|command not found|failed|cannot|unable to|missing" "$log_file" | tail -n 200 > "$err_file" || true
     fi
@@ -299,17 +335,17 @@ manage_custom_files() {
 
     if [ -d "$local_files_path" ] && [ -n "$(ls -A "$local_files_path")" ]; then
         log "Injecting custom files from '${local_files_path}' into firmware..."
-        
+
         # Clean existing files in build dir (Start Fresh)
         if [ -d "${BUILD_DIR}/files" ]; then
             log "Cleaning existing firmware files directory..."
             rm -rf "${BUILD_DIR}/files"
         fi
         mkdir -p "${BUILD_DIR}/files"
-        
+
         # Copy contents
         cp -r "$local_files_path/." "${BUILD_DIR}/files/"
-        
+
         # SAFETY: Ensure lib/modules is NEVER included in the firmware
         if [ -d "${BUILD_DIR}/files/lib/modules" ]; then
             warn "Removing 'lib/modules' from firmware build tree (Safety Check)."
@@ -338,36 +374,41 @@ manage_custom_packages() {
 # MAIN EXECUTION
 # ==============================================================================
 
-# 1. System Checks
+# 1. System Checks & Internet Check moved to interactive_setup for logic flow
 check_debian
-install_dependencies
 
 # 2. Filesystem Setup
 setup_tmpfs
 configure_ccache
 
 # 3. Interactive Setup (Prompts, Repo Updates, File Prep)
+# NOTE: This now handles the connectivity check and prompts for updates
 interactive_setup
+
+# Now we perform dependency installs AFTER we know we are online (or skip)
+install_dependencies
 
 # 4. Fetch Sources
 # Configs still come from REPO_CUSTOM
-manage_git "$REPO_CUSTOM" "$CUSTOM_FILES_DIR" "main-NSS" true
-manage_git "$REPO_FIRMWARE" "$BUILD_DIR" "$BRANCH_FIRMWARE" true
+manage_git "$REPO_CUSTOM" "$CUSTOM_FILES_DIR" "main-NSS"
+manage_git "$REPO_FIRMWARE" "$BUILD_DIR" "$BRANCH_FIRMWARE"
 # Changed fantastic-packages to use 'snapshot' branch
-manage_git "$REPO_FANTASTIC" "$FANTASTIC_PACKAGES_DIR" "snapshot" true
+manage_git "$REPO_FANTASTIC" "$FANTASTIC_PACKAGES_DIR" "snapshot"
 
 # 5. Prepare Build Environment
 cd "${BUILD_DIR}"
 
 log "Managing Feeds..."
-if [ "$IS_ONLINE" = true ]; then
+if [ "$IS_ONLINE" = true ] && [ "$UPDATE_SOURCES" = true ]; then
     log "Online mode: Updating and installing feeds..."
     ./scripts/feeds update -a
     ./scripts/feeds install -a
     ./scripts/feeds install -a
 else
-    log "Offline mode: Installing existing feeds (Skipping update)..."
-    ./scripts/feeds install -a
+    log "Offline/Skip mode: Installing existing feeds (Skipping update)..."
+    # We attempt install in case feeds exist but aren't linked.
+    # If feeds dir is empty, this might fail or do nothing, which is expected in a broken offline state.
+    ./scripts/feeds install -a || warn "Feeds install failed (expected if strictly offline and empty)."
 fi
 
 # 5.1 Inject User Content (Files & Packages)
@@ -544,10 +585,10 @@ make package/aria2/clean || true
 find build_dir -name "aria2-*" -type d -exec rm -rf {} + 2>/dev/null || true
 
 # 12. Download Sources
-if [ "$IS_ONLINE" = true ]; then
+if [ "$IS_ONLINE" = true ] && [ "$UPDATE_SOURCES" = true ]; then
     safe_make "Download Sources" download
 else
-    log "Offline mode: Skipping download step (Assuming sources exist in dl/)..."
+    log "Offline/Skip mode: Skipping download step (Assuming sources exist in dl/)..."
 fi
 
 # 13. Kernel Tweaks

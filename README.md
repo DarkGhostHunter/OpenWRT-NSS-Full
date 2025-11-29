@@ -33,6 +33,7 @@ It's uses on [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openw
 ### Build
 
 * **Unattended:** Interactive part first, build is last step. 
+* **Offline:** Will work if there is no internet connection (assuming downloaded everything).
 * **TMPFS + CCACHE:** Can build on RAMS (if 60GB available). Auto-installs `ccache` for faster re-builds.
 
 * **Critical Build Fixes (non-negotiable)**
