@@ -104,7 +104,7 @@ Usteer already has some good-for-anything defaults about minimum signal strength
 
 If you're a _heavy user_, you may want to run `speedtest-sqm`. It's a bash script that _should_ update SQM scripts depending on your connection download and upload speeds.
 
-You may [test your buffebloat here](https://www.waveform.com/tools/bufferbloat), and if you get C/D/F grades, you will need to set this through the script or manually. Also consider using this on low-speed connections, or if you always need minimum latency at all times (while downloads/uploads take a small penalty).
+You may [test your bufferbloat here](https://www.waveform.com/tools/bufferbloat), and if you get C/D/F grades, you will need to set this through the script or manually. Also consider using this on low-speed connections, or if you always need minimum latency at all times (while downloads/uploads take a small penalty).
 
 ---
 
