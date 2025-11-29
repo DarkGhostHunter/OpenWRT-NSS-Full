@@ -1,0 +1,150 @@
+#!/bin/sh
+
+# ANSI Colors
+GREEN="\033[0;32m"
+RED="\033[0;31m"
+YELLOW="\033[1;33m"
+NC="\033[0m" # No Color
+
+show_menu() {
+    clear
+    printf "%b=========================================%b\n" "${YELLOW}" "${NC}"
+    printf "      Firewall Configuration Tool        \n"
+    printf "%b=========================================%b\n" "${YELLOW}" "${NC}"
+    printf "\n"
+    printf "1. Set Firewall Defaults (Secure)\n"
+    printf "   Re-applies the default policies from z98-firewall.\n"
+    printf "   (Input: REJECT, Output: ACCEPT, Forward: REJECT)\n"
+    printf "   Removes any temporary WAN access rules.\n"
+    printf "\n"
+    printf "2. Enable WAN Management Access\n"
+    printf "   Allows SSH, HTTP, HTTPS, and Ping from the WAN side.\n"
+    printf "   Useful for upstream management.\n"
+    printf "\n"
+    printf "3. Disable Firewall Completely (DANGEROUS)\n"
+    printf "   Stops the firewall service and sets all policies to ACCEPT.\n"
+    printf "   Use only if this device is behind another firewall.\n"
+    printf "\n"
+    printf "0. Exit\n"
+    printf "\n"
+}
+
+set_defaults() {
+    printf "\n%bApplying Secure Defaults (z98-firewall base)...%b\n" "${YELLOW}" "${NC}"
+
+    /etc/init.d/firewall enable
+
+    # remove custom management rules if they exist
+    uci -q delete firewall.allow_ping_wan
+    uci -q delete firewall.allow_ssh_wan
+    uci -q delete firewall.allow_http_wan
+    uci -q delete firewall.allow_https_wan
+
+    # Enforce defaults found in z98-firewall
+    uci batch <<'EOF'
+set firewall.@defaults[0].input='REJECT'
+set firewall.@defaults[0].output='ACCEPT'
+set firewall.@defaults[0].forward='REJECT'
+set firewall.@defaults[0].syn_flood='1'
+EOF
+
+    # Ensure WAN zone is secure
+    # We find the wan zone index or name. Usually it's named 'wan'.
+    # If standard uci setup is used:
+    uci set firewall.wan.input='REJECT'
+    uci set firewall.wan.output='ACCEPT'
+    uci set firewall.wan.forward='REJECT'
+    uci set firewall.wan.masq='1'
+
+    uci commit firewall
+    /etc/init.d/firewall restart
+    printf "%bSecure defaults applied.%b\n" "${GREEN}" "${NC}"
+}
+
+allow_wan_management() {
+    printf "\n%bEnabling WAN Management Access...%b\n" "${GREEN}" "${NC}"
+
+    /etc/init.d/firewall enable
+
+    # 1. Allow Ping (ICMP)
+    uci set firewall.allow_ping_wan=rule
+    uci set firewall.allow_ping_wan.name='Allow-Ping-WAN'
+    uci set firewall.allow_ping_wan.src='wan'
+    uci set firewall.allow_ping_wan.proto='icmp'
+    uci set firewall.allow_ping_wan.target='ACCEPT'
+    uci set firewall.allow_ping_wan.enabled='1'
+
+    # 2. Allow SSH
+    uci set firewall.allow_ssh_wan=rule
+    uci set firewall.allow_ssh_wan.name='Allow-SSH-WAN'
+    uci set firewall.allow_ssh_wan.src='wan'
+    uci set firewall.allow_ssh_wan.dest_port='22'
+    uci set firewall.allow_ssh_wan.target='ACCEPT'
+    uci set firewall.allow_ssh_wan.enabled='1'
+    uci -q delete firewall.allow_ssh_wan.proto
+    uci add_list firewall.allow_ssh_wan.proto='tcp'
+
+    # 3. Allow HTTP
+    uci set firewall.allow_http_wan=rule
+    uci set firewall.allow_http_wan.name='Allow-HTTP-WAN'
+    uci set firewall.allow_http_wan.src='wan'
+    uci set firewall.allow_http_wan.dest_port='80'
+    uci set firewall.allow_http_wan.target='ACCEPT'
+    uci set firewall.allow_http_wan.enabled='1'
+    uci -q delete firewall.allow_http_wan.proto
+    uci add_list firewall.allow_http_wan.proto='tcp'
+
+    # 4. Allow HTTPS
+    uci set firewall.allow_https_wan=rule
+    uci set firewall.allow_https_wan.name='Allow-HTTPS-WAN'
+    uci set firewall.allow_https_wan.src='wan'
+    uci set firewall.allow_https_wan.dest_port='443'
+    uci set firewall.allow_https_wan.target='ACCEPT'
+    uci set firewall.allow_https_wan.enabled='1'
+    uci -q delete firewall.allow_https_wan.proto
+    uci add_list firewall.allow_https_wan.proto='tcp'
+
+    uci commit firewall
+    /etc/init.d/firewall restart
+
+    printf "%bWAN Access Enabled.%b\n" "${GREEN}" "${NC}"
+}
+
+disable_firewall() {
+    printf "\n%bDisabling Firewall Service...%b\n" "${RED}" "${NC}"
+
+    /etc/init.d/firewall stop
+    /etc/init.d/firewall disable
+
+    echo "Flushing tables and setting default policies to ACCEPT..."
+
+    if command -v nft >/dev/null; then
+        nft flush ruleset
+        nft add table inet filter
+        nft add chain inet filter input "{ type filter hook input priority 0 ; policy accept ; }"
+        nft add chain inet filter forward "{ type filter hook forward priority 0 ; policy accept ; }"
+        nft add chain inet filter output "{ type filter hook output priority 0 ; policy accept ; }"
+    else
+        iptables -P INPUT ACCEPT
+        iptables -P OUTPUT ACCEPT
+        iptables -P FORWARD ACCEPT
+        iptables -F
+        iptables -t nat -F
+        iptables -t mangle -F
+    fi
+
+    printf "%bFirewall stopped and flushed. ALL TRAFFIC ALLOWED.%b\n" "${RED}" "${NC}"
+}
+
+while true; do
+    show_menu
+    printf "Select an option [0-3]: "
+    read -r choice
+    case "$choice" in
+        1) set_defaults; printf "Press Enter to continue..."; read -r _ ;;
+        2) allow_wan_management; printf "Press Enter to continue..."; read -r _ ;;
+        3) disable_firewall; printf "Press Enter to continue..."; read -r _ ;;
+        0) exit 0 ;;
+        *) printf "%bInvalid option.%b\n" "${RED}" "${NC}"; sleep 1 ;;
+    esac
+done

@@ -18,7 +18,8 @@ It's uses on [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openw
   * **LAN4 for IoT:** For IoT Hubs (Nest, Hue Bridge, HomePod, Alexa, etc.). Connected to IoT network. Can be _restored_ to normal LAN.
   * **[Adblock](https://github.com/openwrt/packages/blob/master/net/adblock/files/README.md)**: Because.
   * **[Tailscale](https://tailscale.com/) & [Zerotier](https://www.zerotier.com/)**: For your own custom private network. Requires manual UCI config.
-  * **[`configure-firewall`](files/usr/bin/configure-firewall):** One-shot shell script to change between Router and Managed Switch.
+  * **[`configure-firewall`](files/usr/bin/configure-firewall):** One-shot shell script to allow management accessible from WAN, disable firewall or restore defaults.
+  * **[`configure-interface`](files/usr/bin/configure-interface):** One-shot shell script to switch between Managed Switch, Dumb AP and default Router.
   * **[`speedtest-to-sqm`](files/usr/bin/speedtest-sqm):** Configures SQM rules avoid [unstable Internet on heavy usage](https://www.waveform.com/tools/bufferbloat).
   * **[`speedtest-netperf`](files/usr/bin/speedtest-netperf):** Self-test for network.
 
