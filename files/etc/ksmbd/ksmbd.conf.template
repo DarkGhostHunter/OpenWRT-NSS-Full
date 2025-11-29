@@ -1,14 +1,66 @@
+# This template is finetuned for spinning hard drives.
+#
+# Follow this rule for mounting options depending on the device you're connecting:
+#
+# - Spinning Hard Drives on USB 2.0/3.0:
+#     rw,noatime,data=writeback,barrier=0,commit=60
+# - SSD (SATA) Drives on USB 3.0:
+#     rw,noatime,data=writeback
+# - NVMe Drives on USB 3.0:
+#     rw,lazytime,data=writeback
+
 [global]
-	netbios name = |NAME|
-	server string = |DESCRIPTION|
-	workgroup = |WORKGROUP|
-	interfaces = |INTERFACES|
-	bind interfaces only = yes
-	ipc timeout = 20
-	deadtime = 15
-	map to guest = Bad User
-	smb2 max read = 4096K
-	smb2 max write = 4096K
-	smb2 max trans = 1024K
-	cache read buffers = no
-	cache trans buffers = no
+    # --- Identity & Network ---
+    netbios name = |NAME|
+    server string = |DESCRIPTION|
+    workgroup = |WORKGROUP|
+    interfaces = |INTERFACES|
+    bind interfaces only = yes
+
+    # --- Session Management ---
+    # The "deadtime" disconnects inactive clients. 15 mins is good to spin down the HDD, or clear RAM on router.
+    deadtime = 15
+    ipc timeout = 20
+    map to guest = Bad User
+
+    # --- Protocol Performance (Crucial for OpenWRT CPU) ---
+    # Force SMB3 to use modern, efficient opcodes.
+    min protocol = SMB3
+    # DISABLE Signing and Encryption.
+    # On a router CPU, encryption drops speeds from 30MB/s to 5MB/s.
+    server signing = disabled
+    smb3 encryption = disabled
+
+    # --- Transport & Buffers ---
+    # 4MB (4096K) is the sweet spot for USB 2.0 large file transfers.
+    # It reduces the number of "trips" the CPU makes to the USB controller.
+    smb2 max read = 4096K
+    smb2 max write = 4096K
+    # Hard Drives take time to read and write, so small chunks lower latency.
+    smb2 max trans = 1024K
+    # NVMe/SSD drives can handle massive throughput. We maximize the chunk size.
+    # smb2 max trans = 4096K
+
+    # --- KSMBD Specific Optimization ---
+    # ENABLE Sendfile.
+    # Essential for USB 3.0. It creates a "zero-copy" path from the
+    # USB controller directly to the Network controller.
+    use sendfile = yes
+
+    # --- Asynchronous I/O (AIO) ---
+    # Allows the server to queue multiple requests to the slow mechanical drive
+    # without freezing the network connection.
+    aio read size = 16384
+    aio write size = 16384
+    # With NVMe, we don't need AIO to mask seek times (latency is zero).
+    # Instead, we use it to prevent the I/O thread from blocking the Network thread.
+    # We decrease the threshold to 4KB (page size) so tiny metadata reads are
+    # handled instantly (sync), while data transfers are offloaded (async).
+    # aio read size = 4096
+    # aio write size = 4096
+
+    # --- Caching & Metadata ---
+    # NVMe handles metadata (listing files) extremely fast. We disable leasing to reduce
+    # protocol overhead, as the drive is fast enough to serve requests without aggressive
+    # client-side caching. On HDD, "data=writeback" mount option handles this.
+    dir leasing = no
