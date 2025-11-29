@@ -133,3 +133,7 @@ If you're using this router behind a network as a bridge or DNS is handled elsew
 It's because Watchcat configuration. It will restart the **WAN interface** there is no Internet connection for 15 minutes.
 
 If you are offline, disable it through the LUCI panel, via SSH (`/etc/init.d/watchcat disable && /etc/init.d/watchcat stop`) or just delete the rules.
+
+* **You're creating a kernel with the [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access). Are you sure?
+
+No, I'm not sure, but doing so doesn't bring the router down, so probably it has it hidden somewhere? Well, it works.
