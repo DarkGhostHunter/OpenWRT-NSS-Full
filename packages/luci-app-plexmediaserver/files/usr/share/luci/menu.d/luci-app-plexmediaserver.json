@@ -1,0 +1,13 @@
+{
+  "admin/services/plexmediaserver": {
+    "title": "Plex Media Server",
+    "order": 90,
+    "action": {
+      "type": "view",
+      "path": "plexmediaserver"
+    },
+    "depends": {
+      "acl": [ "luci-app-plexmediaserver" ]
+    }
+  }
+}
