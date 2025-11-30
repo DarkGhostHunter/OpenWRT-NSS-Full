@@ -1,0 +1,17 @@
+{
+  "luci-app-zerotier": {
+    "description": "Grant access to ZeroTier configuration",
+    "read": {
+      "uci": [ "zerotier" ],
+      "file": {
+        "/etc/config/zerotier": [ "read" ]
+      }
+    },
+    "write": {
+      "uci": [ "zerotier" ],
+      "file": {
+        "/etc/config/zerotier": [ "write" ]
+      }
+    }
+  }
+}

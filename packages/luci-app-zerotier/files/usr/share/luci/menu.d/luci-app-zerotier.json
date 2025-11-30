@@ -1,0 +1,10 @@
+{
+  "admin/network/zerotier": {
+    "title": "ZeroTier",
+    "order": 90,
+    "action": {
+      "type": "view",
+      "path": "zerotier"
+    }
+  }
+}

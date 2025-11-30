@@ -1,0 +1,28 @@
+{
+  "luci-app-tailscale": {
+    "description": "Grant UCI access for luci-app-tailscale",
+    "read": {
+      "uci": [ "tailscale", "network", "ethtool" ],
+      "cgi-io": [ "exec" ],
+      "file": {
+        "/etc/tailscale/tailscaled.state": [ "read" ],
+        "/tmp/tailscale*": [ "read" ],
+        "/usr/sbin/tailscale": [ "exec" ],
+        "/usr/sbin/tailscaled": [ "exec" ],
+        "/usr/sbin/ethtool": [ "exec" ],
+        "/usr/bin/ethtool": [ "exec" ],
+        "/etc/init.d/tailscale": [ "exec" ],
+        "/bin/sh": [ "exec" ]
+      },
+      "ubus": {
+        "network.interface": [ "dump" ],
+        "network.device": [ "dump" ],
+        "system": [ "board", "info" ],
+        "file": [ "exec" ]
+      }
+    },
+    "write": {
+      "uci": [ "tailscale", "ethtool" ]
+    }
+  }
+}
