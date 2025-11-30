@@ -11,4 +11,4 @@ include $(INCLUDE_DIR)/package.mk
 include $(TOPDIR)/feeds/luci/luci.mk
 
 # Call BuildPackage - OpenWrt buildroot signature
-eval $(call BuildPackage,luci-app-zerotier)
+$(eval $(call BuildPackage,luci-app-zerotier))
