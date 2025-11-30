@@ -1,0 +1,77 @@
+name: Weekly OpenWRT Firmware Build
+
+on:
+  schedule:
+    # Trigger every Friday at 17:00 UTC
+    - cron: '0 17 * * 5'
+  # Allow manual triggering of the workflow for testing
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Firmware
+    runs-on: ubuntu-latest
+    timeout-minutes: 360 # Allow up to 6 hours for compilation
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # OpenWRT builds consume massive disk space (potentially 60GB+).
+      # This action frees up as much space as possible (approx 30-40GB freed + 14GB default = ~50GB total).
+      # Note: If the build strictly requires >60GB, it may still hit limits on standard runners.
+      - name: Free Disk Space
+        uses: jlumbroso/free-disk-space@main
+        with:
+          tool-cache: true
+          android: true
+          dotnet: true
+          haskell: true
+          large-packages: true
+          docker-images: true
+          swap-storage: true
+
+      # Restore ccache from previous runs to speed up compilation.
+      # The 'restore-keys' fallback ensures we pull the latest cache even if the SHA changes.
+      - name: Cache ccache
+        uses: actions/cache@v4
+        with:
+          path: workdir/openwrt/.ccache
+          key: ccache-openwrt-${{ github.sha }}
+          restore-keys: |
+            ccache-openwrt-
+
+      - name: Make Build Script Executable
+        run: chmod +x build.sh
+
+      - name: Run Build Script
+        id: compile
+        run: |
+          # pipe inputs to build.sh to bypass interactive prompts:
+          # 1. Download/Update sources? -> 'y'
+          # 2. Number of threads? -> '1' (Max/All threads)
+          # 3. Verbose output? -> 'n' (Keep logs cleaner)
+          # 4. Pause for custom packages? -> 'n'
+          printf 'y\n1\nn\nn\n' | ./build.sh
+
+      - name: Generate Release Tag
+        id: tag
+        run: echo "date=$(date +'%Y.%m.%d-%H%M')" >> $GITHUB_OUTPUT
+
+      - name: Upload Firmware Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ steps.tag.outputs.date }}
+          name: OpenWRT Firmware ${{ steps.tag.outputs.date }}
+          # recursive glob to grab the binaries from the target directory
+          files: workdir/openwrt/bin/targets/**/*
+          body: |
+            Automated weekly build.
+            
+            **Build Date:** ${{ steps.tag.outputs.date }}
+            **Script Version:** [Link](${{ github.server_url }}/${{ github.repository }}/blob/${{ github.sha }}/build.sh)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
