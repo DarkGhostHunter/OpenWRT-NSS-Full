@@ -32,10 +32,27 @@ TMPFS_SIZE="52g"
 # Build Settings (Defaults)
 MAKE_JOBS=""
 VERBOSE_BUILD=false
-RUN_MENUCONFIG=false 
+RUN_MENUCONFIG=false
+ENABLE_ANIMATION=true
 # Global Network State
 IS_ONLINE=false
 UPDATE_SOURCES=false
+
+# ==============================================================================
+# ARGUMENT PARSING
+# ==============================================================================
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --no-animation)
+            ENABLE_ANIMATION=false
+            shift
+            ;;
+        *)
+            shift # Ignore unknown args or handle them if needed
+            ;;
+    esac
+done
 
 # ==============================================================================
 # VISUAL HELPER FUNCTIONS
@@ -298,7 +315,11 @@ safe_make() {
     else
         eval "$cmd" > "$log_file" 2>&1 &
         local pid=$!
-        spinner $pid
+        # Only run spinner if animation is enabled
+        if [ "$ENABLE_ANIMATION" = true ]; then
+            spinner $pid
+        fi
+
         wait $pid || status=$?
     fi
 
