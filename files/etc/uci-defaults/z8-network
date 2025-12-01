@@ -36,17 +36,6 @@ set network.lan.ipaddr='10.0.0.1/24'
 set network.lan.dns='10.0.0.1'
 set network.lan.delegate='0'
 
-delete network.IoT
-set network.IoT=interface
-set network.IoT.device='lan4'
-set network.IoT.proto='static'
-set network.IoT.ip6assign='60'
-set network.IoT.broadcast='192.168.0.255'
-set network.IoT.ipaddr='192.168.0.1/24'
-set network.IoT.dns_search='lan'
-set network.IoT.dns='192.168.0.1'
-set network.IoT.delegate='0'
-
 delete network.wan
 set network.wan=interface
 set network.wan.device='wan'
@@ -63,6 +52,24 @@ set network.wan6.auto='0'
 set network.wan6.reqaddress='try'
 set network.wan6.reqprefix='auto'
 set network.wan6.peerdns='0'
+
+delete network.IoT
+set network.IoT=interface
+set network.IoT.device='lan4'
+set network.IoT.proto='static'
+set network.IoT.ip6assign='60'
+set network.IoT.broadcast='192.168.0.255'
+set network.IoT.ipaddr='192.168.0.1/24'
+set network.IoT.dns_search='lan'
+set network.IoT.dns='192.168.0.1'
+set network.IoT.delegate='0'
+
+delete network.tailscale
+set network.tailscale=interface
+set network.tailscale.proto='none'
+set network.tailscale.device='tailscale0'
+set network.globals.packet_steering='1'
+set network.IoT.auto='0'
 
 delete network.@device[1]
 add network device
