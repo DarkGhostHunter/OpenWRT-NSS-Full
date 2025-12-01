@@ -324,7 +324,12 @@ safe_make() {
     fi
 
     if [ -f "$log_file" ]; then
-        grep -iE ": error:|: fatal error:|: undefined reference to|command not found|failed|cannot|unable to|missing" "$log_file" | tail -n 200 > "$err_file" || true
+        # 1. Capture lines with error keywords
+        # 2. Exclude lines containing '-Werror' or '-Wno-error' (compiler flags) or 'echo "ERROR:' (script messages)
+        # 3. Save the last 200 lines to err_file
+        grep -iE ": error:|: fatal error:|: undefined reference to|command not found|failed|cannot|unable to|missing" "$log_file" \
+        | grep -vE 'echo "ERROR:|-Werror|-Wno-error' \
+        | tail -n 200 > "$err_file" || true
     fi
 
     if [ $status -ne 0 ]; then
