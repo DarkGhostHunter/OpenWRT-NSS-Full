@@ -6,6 +6,37 @@ grep -q 'net.netfilter.nf_conntrack_tcp_no_window_check' </etc/sysctl.conf || ec
 # change root shell to bash
 sed -i -E s/'^(root:.*:\/bin\/)ash'/'\1bash'/ /etc/passwd
 
+# disable plexmediaserver starting.
+if [ -f /etc/init.d/plexmediaserver ]; then
+  /etc/init.d/plexmediaserver disable
+  /etc/init.d/plexmediaserver stop
+fi
+
+# disable tailscale starting.
+if [ -f /etc/init.d/tailscale ]; then
+  /etc/init.d/tailscale disable
+  /etc/init.d/tailscale stop
+fi
+
+# disable ddns starting.
+if [ -f /etc/init.d/ddns ]; then
+  /etc/init.d/ddns disable
+  /etc/init.d/ddns stop
+fi
+
+# disable zerotier starting.
+if [ -f /etc/init.d/zerotier ]; then
+  /etc/init.d/zerotier disable
+  /etc/init.d/zerotier stop
+fi
+
+# add avahi group
+if [ -f /etc/init.d/bridger ]; then
+  echo "avahi:x:105:avahi" >> /etc/group
+  echo "avahi:*:105:105:avahi:/var/run/avahi-daemon:/bin/false" >> /etc/passwd
+  /etc/init.d/avahi-daemon restart
+fi
+
 if [ -f /etc/init.d/ksmbd ]; then
    # setup SMBUSER for ksmbd
    grep -q 'SMBUSER' </etc/group || echo 'SMBUSER:x:2468:SMBUSER' >>/etc/group
