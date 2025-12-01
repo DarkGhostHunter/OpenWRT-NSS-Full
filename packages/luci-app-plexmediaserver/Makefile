@@ -38,7 +38,7 @@ define Package/luci-app-plexmediaserver/install
 	$(INSTALL_DIR) $(1)/usr/share/rpcd/acl.d
 
 	# Install the init script
-	$(INSTALL_BIN) ./files/init.d/plexmediaserver $(1)/etc/init.d/plexmediaserver
+	$(INSTALL_BIN) ./files/etc/init.d/plexmediaserver $(1)/etc/init.d/plexmediaserver
 
 	# Install the config file
 	$(INSTALL_CONF) ./files/etc/config/plexmediaserver $(1)/etc/config/plexmediaserver
