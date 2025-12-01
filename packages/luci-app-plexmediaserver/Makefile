@@ -4,8 +4,12 @@ PKG_NAME:=luci-app-plexmediaserver
 PKG_VERSION:=2.0
 PKG_RELEASE:=1
 
-PKG_MAINTAINER:=Custom User
 PKG_LICENSE:=Apache-2.0
+PKG_MAINTAINER:=Italo ISrael Baeza Cabrera
+
+LUCI_TITLE:=LuCI support for Plex Media Server
+LUCI_DEPENDS:=+luci-base +tailscale +ethtool
+LUCI_PKGARCH:=all
 
 include $(INCLUDE_DIR)/package.mk
 
