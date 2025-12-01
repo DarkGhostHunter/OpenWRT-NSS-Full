@@ -1,5 +1,5 @@
 {
-  "admin/network/tailscale": {
+  "admin/services/tailscale": {
     "title": "Tailscale",
     "order": 90,
     "action": {
