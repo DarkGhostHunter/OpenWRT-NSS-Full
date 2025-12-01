@@ -27,6 +27,7 @@ set system.ntp.enabled='0'
 # Hardware paths identified via ssh: /sys/class/leds/90000.mdio-1:1c:*
 
 delete system.led_wan_green
+delete system.led_wan_port_green
 set system.led_wan_green=led
 set system.led_wan_green.name='WAN-PORT-LINK-GREEN'
 # Exact sysfs path found on device:
@@ -36,6 +37,7 @@ set system.led_wan_green.dev='wan'
 set system.led_wan_green.mode='link'
 
 delete system.led_wan_yellow
+delete system.led_wan_port_green
 set system.led_wan_yellow=led
 set system.led_wan_yellow.name='WAN-PORT-LINK-YELLOW'
 # Exact sysfs path found on device:
