@@ -46,7 +46,7 @@ It's uses on [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openw
 * **Critical Build Fixes (non-negotiable)**
   * **Binutils 2.44:** Injects a specific dependency rule (`all-bfd: all-libsframe`) to prevent race conditions during parallel builds.
   * **Kernel Makefile:** Uses a "Nuclear Option" to detect and sanitize corrupt `asm-arch` variables in the kernel Makefiles.
-  * **Toolchain:** Forces `-fPIC` for ZSTD host tools and enforces CMake policy version 3.5+ for those packages that still use the old version (and won't compile).
+  * **Toolchain 3.5+:** Forces `-fPIC` for ZSTD host tools and enforces CMake policy version 3.5+ for those packages that still use the old version (and won't compile).
 
 * **Packages**
   * **Sources:** Integrates `fantastic-packages` and custom configs from `jkool702`, except some useless packages (for this build)
