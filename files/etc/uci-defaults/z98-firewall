@@ -86,6 +86,26 @@ set firewall.@forwarding[2]=forwarding
 set firewall.@forwarding[2].src='lan'
 set firewall.@forwarding[2].dest='IoT'
 
+# Tailscale Zone
+delete firewall.@zone[3]
+add firewall zone
+set firewall.@zone[3].name='tailscale'
+set firewall.@zone[3].input='ACCEPT'
+set firewall.@zone[3].output='ACCEPT'
+set firewall.@zone[3].forward='REJECT'
+set firewall.@zone[3].masq='1'
+set firewall.@zone[3].mtu_fix='1'
+set firewall.@zone[3].masq6='1'
+add_list firewall.@zone[3].network='lan'
+
+delete firewall.@forwarding[3]
+set firewall.@forwarding[3].src='tailscale'
+set firewall.@forwarding[3].dest='lan'
+
+delete firewall.@forwarding[4]
+set firewall.@forwarding[4].src='lan'
+set firewall.@forwarding[4].dest='tailscale'
+
 delete firewall.qcanssecm
 set firewall.qcanssecm=include
 set firewall.qcanssecm.type='script'
