@@ -1,6 +1,6 @@
 #!/bin/sh
 
-{ [ -f /etc/should_keep_old_uci_config ]; } || {
+{ [ -f /etc/config/luci_netports ] && sed s/'[[:space:]]'//g /etc/config/luci_netports | grep -qE '.+' && [ -f /rom/etc/config/luci_netports ] && sed s/'[[:space:]]'//g /rom/etc/config/luci_netports | grep -qE '.+' && ! [ "$(cat /etc/config/luci_netports)" = "$(cat /rom/etc/config/luci_netports)" ]; } || {
 
 touch /etc/config/luci_netports
 

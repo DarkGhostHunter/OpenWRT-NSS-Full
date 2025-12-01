@@ -1,6 +1,6 @@
 #!/bin/sh
 
-{ [ -f /etc/should_keep_old_uci_config ]; } || {
+{ [ -f /etc/config/aria2 ] && sed s/'[[:space:]]'//g /etc/config/aria2 | grep -qE '.+' && [ -f /rom/etc/config/aria2 ] && sed s/'[[:space:]]'//g /rom/etc/config/aria2 | grep -qE '.+' && ! [ "$(cat /etc/config/aria2)" = "$(cat /rom/etc/config/aria2)" ]; } || {
 
 touch /etc/config/aria2
 

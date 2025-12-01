@@ -1,6 +1,6 @@
 #!/bin/sh
 
-{ [ -f /etc/should_keep_old_uci_config ]; } || {
+{ [ -f /etc/config/watchcat ] && sed s/'[[:space:]]'//g /etc/config/watchcat | grep -qE '.+' && [ -f /rom/etc/config/watchcat ] && sed s/'[[:space:]]'//g /rom/etc/config/watchcat | grep -qE '.+' && ! [ "$(cat /etc/config/watchcat)" = "$(cat /rom/etc/config/watchcat)" ]; } || {
 
 touch /etc/config/watchcat
 

@@ -1,6 +1,7 @@
 #!/bin/sh
 
-{ [ -f /etc/should_keep_old_uci_config ]; } || {
+# Check if wireless config has already been modified from ROM defaults
+{ [ -f /etc/config/wireless ] && sed s/'[[:space:]]'//g /etc/config/wireless | grep -qE '.+' && [ -f /rom/etc/config/wireless ] && sed s/'[[:space:]]'//g /rom/etc/config/wireless | grep -qE '.+' && ! [ "$(cat /etc/config/wireless)" = "$(cat /rom/etc/config/wireless)" ]; } || {
 
 touch /etc/config/wireless
 

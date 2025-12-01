@@ -1,6 +1,6 @@
 #!/bin/sh
 
-{ [ -f /etc/should_keep_old_uci_config ]; } || {
+{ [ -f /etc/config/cpu-perf ] && sed s/'[[:space:]]'//g /etc/config/cpu-perf | grep -qE '.+' && [ -f /rom/etc/config/cpu-perf ] && sed s/'[[:space:]]'//g /rom/etc/config/cpu-perf | grep -qE '.+' && ! [ "$(cat /etc/config/cpu-perf)" = "$(cat /rom/etc/config/cpu-perf)" ]; } || {
 
 touch /etc/config/cpu-perf
 
