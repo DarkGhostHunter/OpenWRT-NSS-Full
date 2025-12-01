@@ -1,0 +1,27 @@
+#!/bin/sh
+
+# Only run when WAN interface comes up
+[ "$ACTION" = "ifup" ] && [ "$INTERFACE" = "wan" ] || exit 0
+
+(
+   logger -t hotplug-collectd "WAN up. Blocking execution until Chrony confirms sync..."
+
+   # chronyc waitsync [max-tries] [max-correction] [max-skew] [interval]
+   # 60 tries * 10 seconds = 10 minutes timeout
+   # 0.1 = threshold (wait until clock is within 0.1s of true time)
+   if chronyc waitsync 60 0.1 0 10 >/dev/null 2>&1; then
+       
+       # Double check WAN is still up before restarting services
+       if ubus call network.interface.wan status 2>/dev/null | grep -q '"up": true'; then
+           logger -t hotplug-collectd "Chrony reports sync! Restarting statistics."
+           
+           [ -x /etc/init.d/luci_statistics ] && /etc/init.d/luci_statistics restart
+           [ -x /etc/init.d/collectd ] && /etc/init.d/collectd restart
+       else
+           logger -t hotplug-collectd "Sync complete, but WAN is down. Aborting."
+       fi
+
+   else
+       logger -t hotplug-collectd "Chrony sync timed out or failed."
+   fi
+) &
