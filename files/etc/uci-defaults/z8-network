@@ -1,6 +1,6 @@
 #!/bin/sh
 
-{ [ -f /etc/config/network ] && sed s/'[[:space:]]'//g /etc/config/network | grep -qE '.+' && [ -f /rom/etc/config/network ] && sed s/'[[:space:]]'//g /rom/etc/config/network | grep -qE '.+' && ! [ "$(cat /etc/config/network)" = "$(cat /rom/etc/config/network)" ]; } || {
+{ [ -f /etc/should_keep_old_uci_config ]; } || {
 
 touch /etc/config/network
 

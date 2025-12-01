@@ -1,6 +1,6 @@
 #!/bin/sh
 
-{ [ -f /etc/config/luci_statistics ] && sed s/'[[:space:]]'//g /etc/config/luci_statistics | grep -qE '.+' && [ -f /rom/etc/config/luci_statistics ] && sed s/'[[:space:]]'//g /rom/etc/config/luci_statistics | grep -qE '.+' && ! [ "$(cat /etc/config/luci_statistics)" = "$(cat /rom/etc/config/luci_statistics)" ]; } || {
+{ [ -f /etc/should_keep_old_uci_config ]; } || {
 
 touch /etc/config/luci_statistics
 

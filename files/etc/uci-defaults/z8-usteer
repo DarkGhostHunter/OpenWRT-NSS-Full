@@ -1,6 +1,6 @@
 #!/bin/sh
 
-{ [ -f /etc/config/usteer ] && sed s/'[[:space:]]'//g /etc/config/usteer | grep -qE '.+' && [ -f /rom/etc/config/usteer ] && sed s/'[[:space:]]'//g /rom/etc/config/usteer | grep -qE '.+' && ! [ "$(cat /etc/config/usteer)" = "$(cat /rom/etc/config/usteer)" ]; } || {
+{ [ -f /etc/should_keep_old_uci_config ]; } || {
 
 touch /etc/config/usteer
 

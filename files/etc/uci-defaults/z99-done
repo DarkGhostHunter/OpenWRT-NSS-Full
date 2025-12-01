@@ -60,6 +60,9 @@ fi
 # 5. Apply System Control tweaks (sysctl)
 sysctl -p
 
+# 6. Add flag for configuration already created
+touch /etc/should_keep_old_uci_config
+
 logger -p notice -t luci-defaults "Live configuration application complete."
 
 exit 0

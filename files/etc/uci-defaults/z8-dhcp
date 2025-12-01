@@ -1,6 +1,6 @@
 #!/bin/sh
 
-{ [ -f /etc/config/dhcp ] && sed s/'[[:space:]]'//g /etc/config/dhcp | grep -qE '.+' && [ -f /rom/etc/config/dhcp ] && sed s/'[[:space:]]'//g /rom/etc/config/dhcp | grep -qE '.+' && ! [ "$(cat /etc/config/dhcp)" = "$(cat /rom/etc/config/dhcp)" ]; } || {
+{ [ -f /etc/should_keep_old_uci_config ]; } || {
 
 touch /etc/config/dhcp
 
