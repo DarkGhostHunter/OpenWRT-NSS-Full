@@ -29,6 +29,9 @@ It's uses on [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openw
   * **[NetData](https://github.com/netdata/netdata):** Powerful, system data visualizer. [Configured to be lean](files/etc/netdata/netdata.conf). Pinned to CPU0. Disabled by default because heavy first boot.
   * **[Watchcat](https://openwrt.org/docs/guide-user/advanced/watchcat):** Restarts the WAN interface if Internet down.
   * **[Easy SMB shares](files/etc/ksmbd/ksmbd.conf.template.example):** Robust, easy to use `ksmbd` template to mount your SSD/HDD/NVMe. Hardcoded `SMBUSER:SMBPASSWORD`.
+  * **[BanIP](https://openwrt.org/docs/guide-user/services/banip):** Want to block an IP, a Country or a social network? Now you can.
+  * **[TTYD](https://tsl0922.github.io/ttyd/):** Terminal on the web panel (because sometimes you don't have access to SSH).
+  * 
 
 ### Build
 
@@ -47,7 +50,7 @@ It's uses on [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openw
 
 ### Caveats
 
-* **No post-install packages:** You cannot download packages. It's disabled. Compile them yourself and install manually.
+* **No remote packages:** You cannot download packages. It's disabled. Compile them yourself and install manually.
 * **No attended sysupgrade:** You cannot "upgrade" to newer _generic_ builds. It's disabled. Compile them yourself. 
 
 --- 
