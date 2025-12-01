@@ -385,9 +385,20 @@ manage_custom_packages() {
     # Inject into build
     if [ -d "$local_pkgs_path" ] && [ -n "$(ls -A "$local_pkgs_path")" ]; then
         log "Injecting custom packages into build directory..."
-        # Copy to package/custom so OpenWrt picks them up
-        mkdir -p "${BUILD_DIR}/package/custom"
-        cp -r "$local_pkgs_path/." "${BUILD_DIR}/package/custom/"
+
+        # Check if the link exists
+        if [ -L "${BUILD_DIR}/package/custom" ]; then
+            echo "Symlink already exists: ${BUILD_DIR}/package/custom"
+        else
+            # Check if the target directory exists
+            if [ -d "$local_pkgs_path" ]; then
+                ln -s "$local_pkgs_path" "${BUILD_DIR}/package/custom"
+                echo "Created symlink: ${BUILD_DIR}/package/custom -> $local_pkgs_path"
+            else
+                echo "Target directory does not exist: $local_pkgs_path"
+                exit 1
+            fi
+        fi
     fi
 }
 
