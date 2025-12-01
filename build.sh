@@ -357,15 +357,19 @@ manage_custom_files() {
     if [ -d "$local_files_path" ] && [ -n "$(ls -A "$local_files_path")" ]; then
         log "Injecting custom files from '${local_files_path}' into firmware..."
 
-        # Clean existing files in build dir (Start Fresh)
-        if [ -d "${BUILD_DIR}/files" ]; then
-            log "Cleaning existing firmware files directory..."
-            rm -rf "${BUILD_DIR}/files"
+        # Check if the link exists
+        if [ -L "${BUILD_DIR}/files" ]; then
+            echo "Symlink already exists: ${BUILD_DIR}/files"
+        else
+            # Check if the target directory exists
+            if [ -d "$local_files_path" ]; then
+                ln -s "$local_files_path" "${BUILD_DIR}/files"
+                echo "Created symlink: ${BUILD_DIR}/files -> $local_files_path"
+            else
+                echo "Target directory does not exist: $local_files_path"
+                exit 1
+            fi
         fi
-        mkdir -p "${BUILD_DIR}/files"
-
-        # Copy contents
-        cp -r "$local_files_path/." "${BUILD_DIR}/files/"
 
         # SAFETY: Ensure lib/modules is NEVER included in the firmware
         if [ -d "${BUILD_DIR}/files/lib/modules" ]; then
