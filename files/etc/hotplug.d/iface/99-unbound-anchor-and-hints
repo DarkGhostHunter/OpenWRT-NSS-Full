@@ -15,16 +15,22 @@
         # Ping check to ensure we can reach the outside world
         if ping -q -c 1 -W 5 8.8.8.8 >/dev/null 2>&1; then
             logger -t unbound-anchor "Internet connection detected. Validating Root Trust Anchor..."
-            
+
             # Execute the anchor maintenance
             if [ -x "$UB_ANCHOR" ]; then
+                # download the hints if these do not exist.
+                if [ ! -s "$UB_RHINT_FILE" ]; then
+                    curl -o "$UB_RHINT_FILE" "https://www.internic.net/domain/named.cache"
+                fi
+
                 # -a attempts to update/verify the root key
                 $UB_ANCHOR -a "$UB_RKEY_FILE"
                 
                 # Fix permissions
                 chown unbound:unbound "$UB_RKEY_FILE"
-                
-                logger -t unbound-anchor "Root Anchor updated. Restarting Unbound..."
+                chown unbound:unbound "$UB_RHINT_FILE/root.hints"
+
+                logger -t unbound-anchor "Root Anchor & Hints updated. Restarting Unbound..."
                 /etc/init.d/unbound restart
             fi
             break
