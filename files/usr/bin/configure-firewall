@@ -18,8 +18,9 @@ show_menu() {
     printf "   Removes any temporary WAN access rules.\n"
     printf "\n"
     printf "2. Enable WAN Management Access\n"
-    printf "   Allows SSH, HTTP, HTTPS, and Ping from the WAN side.\n"
-    printf "   Useful for upstream management.\n"
+    printf "   Allows SSH, HTTP, HTTPS, SMB, Avahi (Bonjour) and Ping from the WAN side.\n"
+    printf "   Enable Plex Media Server, Aria2 (6980-6999), miniDLNA, from the WAN side.\n"
+    printf "   Useful for upstream management, client discovery.\n"
     printf "\n"
     printf "3. Disable Firewall Completely (DANGEROUS)\n"
     printf "   Stops the firewall service and sets all policies to ACCEPT.\n"
@@ -85,24 +86,103 @@ allow_wan_management() {
     uci add_list firewall.allow_ssh_wan.proto='tcp'
 
     # 3. Allow HTTP
-    uci set firewall.allow_http_wan=rule
-    uci set firewall.allow_http_wan.name='Allow-Management-HTTP-WAN'
-    uci set firewall.allow_http_wan.src='wan'
-    uci set firewall.allow_http_wan.dest_port='80'
-    uci set firewall.allow_http_wan.target='ACCEPT'
-    uci set firewall.allow_http_wan.enabled='1'
-    uci -q delete firewall.allow_http_wan.proto
-    uci add_list firewall.allow_http_wan.proto='tcp'
+    uci set firewall.allow_management_http_wan=rule
+    uci set firewall.allow_management_http_wan.name='Allow-Management-HTTP-WAN'
+    uci set firewall.allow_management_http_wan.src='wan'
+    uci set firewall.allow_management_http_wan.dest_port='80'
+    uci set firewall.allow_management_http_wan.target='ACCEPT'
+    uci set firewall.allow_management_http_wan.enabled='1'
+    uci -q delete firewall.allow_management_http_wan.proto
+    uci add_list firewall.allow_management_http_wan.proto='tcp'
 
     # 4. Allow HTTPS
-    uci set firewall.allow_https_wan=rule
-    uci set firewall.allow_https_wan.name='Allow-Management-HTTPS-WAN'
-    uci set firewall.allow_https_wan.src='wan'
-    uci set firewall.allow_https_wan.dest_port='443'
-    uci set firewall.allow_https_wan.target='ACCEPT'
-    uci set firewall.allow_https_wan.enabled='1'
-    uci -q delete firewall.allow_https_wan.proto
-    uci add_list firewall.allow_https_wan.proto='tcp'
+    uci set firewall.allow_management_https_wan=rule
+    uci set firewall.allow_management_https_wan.name='Allow-Management-HTTPS-WAN'
+    uci set firewall.allow_management_https_wan.src='wan'
+    uci set firewall.allow_management_https_wan.dest_port='443'
+    uci set firewall.allow_management_https_wan.target='ACCEPT'
+    uci set firewall.allow_management_https_wan.enabled='1'
+    uci -q delete firewall.allow_management_https_wan.proto
+    uci add_list firewall.allow_management_https_wan.proto='tcp'
+
+    # 5. Allow Avahi (Bonjour)
+    uci set firewall.allow_avahi_wan=rule
+    uci set firewall.allow_avahi_wan.name='Allow-Avahi'
+    uci set firewall.allow_avahi_wan.src='wan'
+    uci set firewall.allow_avahi_wan.dest_port='5353'
+    uci set firewall.allow_avahi_wan.target='ACCEPT'
+    uci set firewall.allow_avahi_wan.enabled='1'
+    uci -q delete firewall.allow_avahi_wan.proto
+    uci add_list firewall.allow_avahi_wan.proto='udp'
+
+    # 6. Allow SMB
+    uci set firewall.allow_smb_wan=rule
+    uci set firewall.allow_smb_wan.name='Allow-SMB-WAN'
+    uci set firewall.allow_smb_wan.src='wan'
+    uci set firewall.allow_smb_wan.dest_port='445'
+    uci set firewall.allow_smb_wan.target='ACCEPT'
+    uci set firewall.allow_smb_wan.enabled='1'
+    uci -q delete firewall.allow_smb_wan.proto
+    uci add_list firewall.allow_smb_wan.proto='tcp'
+
+    # 5. Allow Plex Media Server, discovery ports
+    uci set firewall.allow_plex_http_wan=rule
+    uci set firewall.allow_plex_http_wan.name='Allow-Plex-HTTP-WAN'
+    uci set firewall.allow_plex_http_wan.src='wan'
+    uci set firewall.allow_plex_http_wan.dest_port='32400'
+    uci set firewall.allow_plex_http_wan.target='ACCEPT'
+    uci set firewall.allow_plex_http_wan.enabled='1'
+    uci -q delete firewall.allow_plex_http_wan.proto
+    uci add_list firewall.allow_plex_http_wan.proto='tcp'
+
+    uci set firewall.allow_plex_discovery_wan=rule
+    uci set firewall.allow_plex_discovery_wan.name='Allow-Plex-Discovery-WAN'
+    uci set firewall.allow_plex_discovery_wan.src='wan'
+    uci set firewall.allow_plex_discovery_wan.dest_port='32410 32412 32413 32414'
+    uci set firewall.allow_plex_discovery_wan.target='ACCEPT'
+    uci set firewall.allow_plex_discovery_wan.enabled='1'
+    uci -q delete firewall.allow_plex_discovery_wan.proto
+    uci add_list firewall.allow_plex_discovery_wan.proto='udp'
+
+    # 5. Allow AriaNG
+    uci set firewall.allow_ariang_wan=rule
+    uci set firewall.allow_ariang_wan.name='Allow-AriaNG-WAN'
+    uci set firewall.allow_ariang_wan.src='wan'
+    uci set firewall.allow_ariang_wan.dest_port='6800'
+    uci set firewall.allow_ariang_wan.target='ACCEPT'
+    uci set firewall.allow_ariang_wan.enabled='1'
+    uci -q delete firewall.allow_ariang_wan.proto
+    uci add_list firewall.allow_ariang_wan.proto='tcp'
+    uci add_list firewall.allow_ariang_wan.proto='udp'
+
+    uci set firewall.allow_ariang_bittorrent_wan=rule
+    uci set firewall.allow_ariang_bittorrent_wan.name='Allow-AriaNG-BitTorrent-WAN'
+    uci set firewall.allow_ariang_bittorrent_wan.src='wan'
+    uci set firewall.allow_ariang_bittorrent_wan.dest_port='6881-6999'
+    uci set firewall.allow_ariang_bittorrent_wan.target='ACCEPT'
+    uci set firewall.allow_ariang_bittorrent_wan.enabled='1'
+    uci -q delete firewall.allow_ariang_bittorrent_wan.proto
+    uci add_list firewall.allow_ariang_bittorrent_wan.proto='tcp'
+    uci add_list firewall.allow_ariang_bittorrent_wan.proto='udp'
+
+    # 5. Allow AriaNG
+    uci set firewall.allow_minidlna_wan=rule
+    uci set firewall.allow_minidlna_wan.name='Allow-MiniDLNA-WAN'
+    uci set firewall.allow_minidlna_wan.src='wan'
+    uci set firewall.allow_minidlna_wan.dest_port='8200'
+    uci set firewall.allow_minidlna_wan.target='ACCEPT'
+    uci set firewall.allow_minidlna_wan.enabled='1'
+    uci -q delete firewall.allow_minidlna_wan.proto
+    uci add_list firewall.allow_minidlna_wan.proto='tcp'
+
+    uci set firewall.allow_minidlna_discovery_wan=rule
+    uci set firewall.allow_minidlna_discovery_wan.name='Allow-MiniDLNA-Discovery-WAN'
+    uci set firewall.allow_minidlna_discovery_wan.src='wan'
+    uci set firewall.allow_minidlna_discovery_wan.dest_port='1900'
+    uci set firewall.allow_minidlna_discovery_wan.target='ACCEPT'
+    uci set firewall.allow_minidlna_discovery_wan.enabled='1'
+    uci -q delete firewall.allow_minidlna_discovery_wan.proto
+    uci add_list firewall.allow_minidlna_discovery_wan.proto='udp'
 
     uci commit firewall
     /etc/init.d/firewall restart
