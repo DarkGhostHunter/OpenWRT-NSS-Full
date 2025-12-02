@@ -86,7 +86,7 @@ allow_wan_management() {
 
     # 3. Allow HTTP
     uci set firewall.allow_http_wan=rule
-    uci set firewall.allow_http_wan.name='Allow-HTTP-WAN'
+    uci set firewall.allow_http_wan.name='Allow-Management-HTTP-WAN'
     uci set firewall.allow_http_wan.src='wan'
     uci set firewall.allow_http_wan.dest_port='80'
     uci set firewall.allow_http_wan.target='ACCEPT'
@@ -96,7 +96,7 @@ allow_wan_management() {
 
     # 4. Allow HTTPS
     uci set firewall.allow_https_wan=rule
-    uci set firewall.allow_https_wan.name='Allow-HTTPS-WAN'
+    uci set firewall.allow_https_wan.name='Allow-Management-HTTPS-WAN'
     uci set firewall.allow_https_wan.src='wan'
     uci set firewall.allow_https_wan.dest_port='443'
     uci set firewall.allow_https_wan.target='ACCEPT'
