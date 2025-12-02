@@ -67,14 +67,11 @@ odhcpd_zonedata() {
         sort $dhcp_origin > $dhcp_ls_new
         longconf=longtime
 
-      elif [ $dateoldf -gt 1 ] ; then
+      else
+        # Force update immediately. Unbound-control is fast enough.
         touch $dns_ls_old
         sort $dhcp_origin > $dhcp_ls_new
         longconf=increment
-
-      else
-        # odhcpd is rapidly updating leases a race condition could occur
-        longconf=skip
       fi
     fi
 
