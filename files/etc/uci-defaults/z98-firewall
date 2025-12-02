@@ -91,7 +91,7 @@ delete firewall.@zone[3]
 add firewall zone
 set firewall.@zone[3]=zone
 set firewall.@zone[3].name='tailscale'
-add_list firewall.@zone[3].network='lan'
+add_list firewall.@zone[3].network='tailscale'
 set firewall.@zone[3].input='ACCEPT'
 set firewall.@zone[3].output='ACCEPT'
 set firewall.@zone[3].forward='REJECT'
