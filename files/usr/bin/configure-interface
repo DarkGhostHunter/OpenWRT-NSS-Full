@@ -82,6 +82,7 @@ set_ap_mode() {
     printf "  3. Set LAN to DHCP Client (gets IP from upstream).\n"
     printf "  4. Disable local DHCP server, DNS (Unbound), and Odhcpd.\n"
     printf "  5. Disable Firewall completely (sets policies to ACCEPT).\n"
+    printf "  6. Disable Watchcat.\n"
     printf "%bWARNING: You will lose connection immediately!%b\n" "${RED}" "${NC}"
     printf "%bWARNING: Firewall will be disabled to avoid interference. Configure manually if needed.%b\n" "${YELLOW}" "${NC}"
 
@@ -140,6 +141,10 @@ set_ap_mode() {
         iptables -t nat -F
         iptables -t mangle -F
     fi
+
+    echo "Disabling Watchcat..."
+    /etc/init.d/watchat stop
+    /etc/init.d/watchat disable
 
     echo "Applying network changes... Goodbye!"
     /etc/init.d/network restart
