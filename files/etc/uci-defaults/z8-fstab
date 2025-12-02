@@ -19,7 +19,8 @@ delete fstab.@mount[0]
 add fstab mount
 set fstab.@mount[0]=mount
 set fstab.@mount[0].enabled='0'
-set fstab.@mount[0].fstype='ntfs-3g'
+set fstab.@mount[0].label='CHANGE ME FOR THE PROPER TARGET'
+set fstab.@mount[0].target='/mnt/sda1'
 
 delete fstab.@mount[1]
 add fstab mount
