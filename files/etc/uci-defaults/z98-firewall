@@ -100,10 +100,12 @@ set firewall.@zone[3].mtu_fix='1'
 set firewall.@zone[3].masq6='1'
 
 delete firewall.@forwarding[3]
+add firewall forwarding
 set firewall.@forwarding[3].src='tailscale'
 set firewall.@forwarding[3].dest='lan'
 
 delete firewall.@forwarding[4]
+add firewall forwarding
 set firewall.@forwarding[4].src='lan'
 set firewall.@forwarding[4].dest='tailscale'
 
