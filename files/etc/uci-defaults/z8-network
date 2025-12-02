@@ -71,6 +71,12 @@ set network.tailscale.device='tailscale0'
 set network.globals.packet_steering='1'
 set network.IoT.auto='0'
 
+delete network.zerotier
+set network.tailscale=interface
+set network.tailscale.proto='none'
+set network.tailscale.device='ztXXXXXXXX'
+set network.IoT.auto='0'
+
 delete network.@device[1]
 add network device
 set network.@device[1]=device
