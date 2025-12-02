@@ -2,60 +2,56 @@
 
 This script builds OpenWRT from scratch for Dynalink DL-WRX36, with Network SubSystem, plus many Quality-of-Life packages and fixes.
 
-It's uses on [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openwrt), and adds [jkool702 package improvements](https://github.com/jkool702/openwrt-custom-builds), like adding Plex Server. It was created mashing up a lot of AI like Claude, Grok, Gemini, Copilot and Mistral, a lot of trial-and-error, and credits. Lot of credits.
+It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds), but uses the up-to-date [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openwrt). It was created mashing up a lot of AI like Claude, Grok, Gemini, Copilot and Mistral, a lot of trial-and-error, and credits. Lot of credits.
 
 > [!DANGER]
-> 
-> This build does **NOT** save your device default configuration. Save it _before_, or if you're updating from a very old version, apply manually.
+>
+> This build does **NOT** save your device default configuration. Save it _before_, or if you're updating from a very old version, and apply manually, to avoid risk of misconfiguration and being locked out. **You'be been warned**.
 
 ## Highlights:
 
 * **Performance**
-  * **NSS enabled:** Offloads network to custom hardware, less CPU usage. 
-  * **[CPU Pining](files/etc/init.d/smp_affinity):** CPU0 for generic tasks. Ethernet & Crypto on CPU1. WiFi on CPU2. NSS Queue in CPU3.
-  * **Kernel tweaks:** Specific for Cortex-A53 arch. NEON (SIMD) enabled. CRC32, Crypto (AES/SHA1/SHA2) hardware accelerated.
-  * **ZRAM 512MB:** Swap on compressed RAM with ZSTD compression to minimize flash wear on high memory pressure.
+    * **NSS enabled:** Offloads network to custom hardware, less CPU usage.
+    * **[CPU Pining](files/etc/init.d/smp_affinity):** CPU0 for generic tasks. Ethernet & Crypto on CPU1. WiFi on CPU2. NSS Queue in CPU3.
+    * **Kernel tweaks:** Specific for Cortex-A53 arch. NEON (SIMD) enabled. CRC32, Crypto (AES/SHA1/SHA2) hardware accelerated.
+    * **ZRAM 512MB:** Swap on compressed RAM with ZSTD compression to minimize flash wear on high memory pressure (like for huge Adblock lists).
 
 * **Networking**
-  * **`10.0.0.0`:** Home Network. With `odhcpd` for superior IPv6 management, `unbound` for secure private/secure DNS handling.
-  * **`192.168.0.0`:** IoT Network. No router access, only Internet. Isolated. Home Network can reach it, not viceversa.
-  * **LAN4 for IoT:** For IoT Hubs (Nest, Hue Bridge, HomePod, Alexa, etc.). Connected to IoT network. Can be _restored_ to normal LAN.
-  * **[Adblock](https://github.com/openwrt/packages/blob/master/net/adblock/files/README.md)**: Because.
-  * **[Tailscale](https://tailscale.com/) & [Zerotier](https://www.zerotier.com/)**: For your own custom private network. With interface and zone. Requires minor setup.
-  * **[`configure-firewall`](files/usr/bin/configure-firewall):** One-shot shell script to allow management accessible from WAN, disable firewall or restore defaults.
-  * **[`configure-interface`](files/usr/bin/configure-interface):** One-shot shell script to switch between Managed Switch, Dumb AP and default Router.
-  * **[`speedtest-to-sqm`](files/usr/bin/speedtest-sqm):** Configures SQM rules avoid [unstable Internet on heavy usage](https://www.waveform.com/tools/bufferbloat).
-  * **[`speedtest-netperf`](files/usr/bin/speedtest-netperf):** Self-test for network.
+    * **`10.0.0.0`:** Home Network. With `odhcpd` for superior IPv6 management, `unbound` for secure private/secure DNS handling.
+    * **`192.168.0.0`:** IoT Network. No router access, only Internet. Isolated. Home Network can reach it, not viceversa.
+    * **LAN4 for IoT:** For IoT Hubs (Nest, Hue Bridge, HomePod, Alexa, etc.). Connected to IoT network. Can be _restored_ to normal LAN.
+    * **[Adblock](https://github.com/openwrt/packages/blob/master/net/adblock/files/README.md)**: Because.
+    * **[Tailscale](https://tailscale.com/) & [Zerotier](https://www.zerotier.com/)**: For your own custom private network. With interface and zone. Requires minor setup.
+    * **Firewall, SQM and Interface setup scripts**: One-shot shell script to [configure your router the first time](#first-boot).
 
 * **Goodies**
-  * **[Plex Media Server](https://plex.tv):** Great Media Server. Comes with LUCI panel. Requires external storage. 
-  * **[Aria2](https://aria2.github.io/):** Powerful & simple downloader, with headers and BitTorrent. Comes with [AriaNG](https://github.com/mayswind/AriaNg).
-  * **[NetData](https://github.com/netdata/netdata):** Powerful, system data visualizer. [Configured to be lean](files/etc/netdata/netdata.conf). Pinned to CPU0. Disabled by default because heavy first boot.
-  * **[Watchcat](https://openwrt.org/docs/guide-user/advanced/watchcat):** Restarts the WAN interface if Internet down.
-  * **[Easy SMB shares](files/etc/ksmbd/ksmbd.conf.template.example):** Robust, easy to use `ksmbd` template to mount your SSD/HDD/NVMe. Hardcoded `SMBUSER:SMBPASSWORD`.
-  * **[BanIP](https://openwrt.org/docs/guide-user/services/banip):** Want to block an IP, a Country or a social network? Now you can.
-  * **[TTYD](https://tsl0922.github.io/ttyd/):** Terminal on the web panel (because sometimes you don't have access to SSH).
-  * 
+    * **[Plex Media Server](https://plex.tv):** Great Media Server. Comes with LUCI panel. Requires external storage.
+    * **[Aria2](https://aria2.github.io/):** Powerful & simple downloader, with headers and BitTorrent. Comes with [AriaNG](https://github.com/mayswind/AriaNg).
+    * **[NetData](https://github.com/netdata/netdata):** Powerful, system data visualizer. [Configured to be lean](files/etc/netdata/netdata.conf). Pinned to CPU0. Disabled by default because heavy first boot.
+    * **[Watchcat](https://openwrt.org/docs/guide-user/advanced/watchcat):** Restarts the WAN interface if Internet down.
+    * **[Easy SMB shares](files/etc/ksmbd/ksmbd.conf.template.example):** Robust, easy to use `ksmbd` template to mount your SSD/HDD/NVMe. Hardcoded `SMBUSER:SMBPASSWORD`.
+    * **[BanIP](https://openwrt.org/docs/guide-user/services/banip):** Want to block an IP, a Country or a social network? Now you can.
+    * **[TTYD](https://tsl0922.github.io/ttyd/):** Terminal on the web panel (because sometimes you don't have access to SSH).
 
 ### Build
 
-* **Unattended:** Interactive part first, build is last step. 
+* **Unattended:** Interactive part first, build is last step.
 * **Offline:** Will work if there is no internet connection (assuming downloaded everything).
 * **TMPFS + CCACHE:** Can build on RAMS (if 60GB available). Auto-installs `ccache` for faster re-builds.
 
 * **Critical Build Fixes (non-negotiable)**
-  * **Binutils 2.44:** Injects a specific dependency rule (`all-bfd: all-libsframe`) to prevent race conditions during parallel builds.
-  * **Kernel Makefile:** Uses a "Nuclear Option" to detect and sanitize corrupt `asm-arch` variables in the kernel Makefiles.
-  * **Toolchain 3.5+:** Forces `-fPIC` for ZSTD host tools and enforces CMake policy version 3.5+ for those packages that still use the old version (and won't compile).
+    * **Binutils 2.44:** Injects a specific dependency rule (`all-bfd: all-libsframe`) to prevent race conditions during parallel builds.
+    * **Kernel Makefile:** Uses a "Nuclear Option" to detect and sanitize corrupt `asm-arch` variables in the kernel Makefiles.
+    * **Toolchain 3.5+:** Forces `-fPIC` for ZSTD host tools and enforces CMake policy version 3.5+ for those packages that still use the old version (and won't compile).
 
 * **Packages**
-  * **Sources:** Integrates `fantastic-packages` and custom configs from `jkool702`, except some useless packages (for this build)
-  * **Exclusions:** Automatically filters out known unstable packages (e.g., `shadowsocks-rust`, `pcap-dnsproxy`, `stuntman`) to prevent build errors.
+    * **Sources:** Integrates `fantastic-packages` and custom configs from `jkool702`, except some useless packages (for this build)
+    * **Exclusions:** Automatically filters out known unstable packages (e.g., `shadowsocks-rust`, `pcap-dnsproxy`, `stuntman`) to prevent build errors.
 
 ### Caveats
 
 * **No remote packages:** You cannot download packages. It's disabled. Compile them yourself and install manually.
-* **No attended sysupgrade:** You cannot "upgrade" to newer _generic_ builds. It's disabled. Compile them yourself. 
+* **No attended sysupgrade:** You cannot "upgrade" to newer _generic_ builds. It's disabled. Compile them yourself.
 
 --- 
 
@@ -90,28 +86,42 @@ cd openwrt-build && ./build.sh
 > [!NOTE]
 >
 > If your SSH commands output something like `ssh_dispatch_run_fatal: ... error in libcrypto`, you will need to use SSH with some older crypto to connect. Without modifying your system, just run podman/docker and run the command inside it.
-> 
+>
 > ```shell
 > podman run -it --rm --network=host \
-  docker.io/alpine:3.19 \
-  /bin/sh -c "apk add --no-cache openssh-client && ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa admin@192.168.216.1"
+docker.io/alpine:3.19 \
+/bin/sh -c "apk add --no-cache openssh-client && ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa admin@192.168.216.1"
 > ```
 
 ---
 
-## After booting
+## First boot
 
 ### 1. WiFi and Usteer
 
 You will probably want to change both your WiFi SSID on both antennas into something like "MyOffice". Every time you change them, you will have to get into usteer configuration and point these WiFi SSID to be _steered_. This way, your devices will roam between both antennas depending on signal quality.
 
-Usteer already has some good-for-anything defaults about minimum signal strength and offset. 
+Usteer already has some good-for-anything defaults about minimum signal strength and offset.
 
-### 2. Speedtest your Gigabit Internet
+### 2. Configure your Interfaces
 
-If you're a _heavy user_, you may want to run `speedtest-sqm`. It's a bash script that _should_ update SQM scripts depending on your connection download and upload speeds.
+The [`configure-interface`](files/usr/bin/configure-interface) script changes the router between the default Router mode, and the Managed Switch / Dumb AP without firewall.
 
-You may [test your bufferbloat here](https://www.waveform.com/tools/bufferbloat), and if you get C/D/F grades, you will need to set this through the script or manually. Also consider using this on low-speed connections, or if you always need minimum latency at all times (while downloads/uploads take a small penalty).
+If your OpenWRT router won't be the main router, run that script first. Preferably, connect the WAN interface to your upstream router LAN ports and should be working. 
+
+### 3. Configure your firewall
+
+The [`configure-firewall`](files/usr/bin/configure-firewall) script disables the firewall entirely, allows OpenWRT management accessible from `wan` (outside), or restore the defaults.
+
+If your OpenWRT router sits as a Dumb AP, you will probably want to access the management from the same network, so run this script first. 
+
+### 4. Speedtest to SQM tuning
+
+The [`speedtest-to-sqm`](files/usr/bin/speedtest-sqm) script configures SQM rules by _speedtesting_ your Internet. 
+
+If your Internet connection gets unstable (unresponsive browsing, high latency, unstable videocalls) when being saturated, you may be victim of _bufferbloat_. Use this script to add rules to the traffic so prioritize network packets over others. 
+
+You may test [your bufferbloat here](https://www.waveform.com/tools/bufferbloat). Usually asymmetric Internet connections (high download, low download) suffer from this.
 
 ---
 
@@ -127,7 +137,7 @@ Check the error logs, upload it to an AI and check what fix returns.
 
 * **The AI says I should edit something inside the `feeds` directory**
 
-Do not. Asks for a non-invansive fix. Post it here or make it a PR to integrate it to the script.
+Do not. Asks for a non-invasive fix. Post it here or make it a PR to integrate it to the script. Only put small fixes. 
 
 * **Why `unbound` uses around 250MB of RAM!?**
 
@@ -137,10 +147,14 @@ If you're using this router behind a network as a bridge or DNS is handled elsew
 
 * **Help! My router restarts every 15 minutes or so!**
 
-It's because Watchcat configuration. It will restart the **WAN interface** there is no Internet connection for 15 minutes.
+It's because [Watchcat](files/etc/uci-defaults/z8-watchcat) default configuration. It will restart the **WAN interface** there is no Internet connection for 15 minutes.
 
 If you are offline, disable it through the LUCI panel, via SSH (`/etc/init.d/watchcat disable && /etc/init.d/watchcat stop`) or just delete the rules.
 
 * **You're creating a kernel with the [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access). Are you sure?**
 
 No, I'm not sure, but doing so doesn't bring the router down, so probably it has it hidden somewhere? Well, it works.
+
+* **Can you include Jellyfin instead of Plex?**
+
+No, mostly because you will need Docker/Podman or [`chroot`](https://openwrt.org/docs/guide-user/services/chroot), and I'm not familiar with that setup. I would if someone decided to create a small package for it, like [I did for Plex Media Server](packages/luci-app-plexmediaserver).
