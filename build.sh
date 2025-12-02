@@ -567,6 +567,14 @@ sed -i '/CONFIG_PACKAGE_avahi-dbus-daemon/d' .config
 echo "# CONFIG_PACKAGE_avahi-dbus-daemon is not set" >> .config
 add_package "avahi-nodbus-daemon"
 
+# Force Remove dbus
+sed -i '/CONFIG_PACKAGE_libavahi-dbus-support/d' .config
+echo "# CONFIG_PACKAGE_libavahi-dbus-support is not set" >> .config
+sed -i '/CONFIG_PACKAGE_dbus-utils/d' .config
+echo "# CONFIG_PACKAGE_dbus-utils is not set" >> .config
+sed -i '/CONFIG_PACKAGE_dbus/d' .config
+echo "# CONFIG_PACKAGE_dbus is not set" >> .config
+
 # Disable Vim
 sed -i '/CONFIG_PACKAGE_vim/d' .config
 sed -i '/CONFIG_PACKAGE_vim-full/d' .config
