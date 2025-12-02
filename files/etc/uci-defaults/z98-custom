@@ -31,7 +31,7 @@ if [ -f /etc/init.d/zerotier ]; then
 fi
 
 # add avahi group
-if [ -f /etc/init.d/bridger ]; then
+if [ -f /etc/init.d/avahi-daemon ]; then
   echo "avahi:x:105:avahi" >> /etc/group
   echo "avahi:*:105:105:avahi:/var/run/avahi-daemon:/bin/false" >> /etc/passwd
   /etc/init.d/avahi-daemon restart
@@ -44,6 +44,11 @@ if [ -f /etc/init.d/ksmbd ]; then
    grep -q 'SMBUSER' </etc/passwd || echo 'SMBUSER:*:2468:2468:SMBUSER:/mnt:/bin/false' >>/etc/passwd
 
    ksmbd.adduser -a SMBUSER -p SMBPASSWORD
+
+   # Check if the config template is the same as default. If it is, change it for our default.
+   { [ -f /etc/ksmbd/ksmbd.conf.template ] && sed s/'[[:space:]]'//g /etc/ksmbd/ksmbd.conf.template | grep -qE '.+' && [ -f /rom/etc/ksmbd/ksmbd.conf.template ] && sed s/'[[:space:]]'//g /rom/etc/ksmbd/ksmbd.conf.template | grep -qE '.+' && ! [ "$(cat /etc/ksmbd/ksmbd.conf.template)" = "$(cat /rom/etc/ksmbd/ksmbd.conf.template)" ]; } || {
+      mv -f /etc/ksmbd/ksmbd.conf.template.example /etc/ksmbd/ksmbd.conf.template
+   }
 fi
 
 mkdir -p /var/lock
