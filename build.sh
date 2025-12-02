@@ -562,6 +562,11 @@ add_package "luci-app-plexmediaserver"
 add_package "luci-app-tailscale"
 add_package "luci-app-zerotier"
 
+# Force Avahi No-DBus variant to fix permission crashes
+sed -i '/CONFIG_PACKAGE_avahi-dbus-daemon/d' .config
+echo "# CONFIG_PACKAGE_avahi-dbus-daemon is not set" >> .config
+add_package "avahi-nodbus-daemon"
+
 # Disable Vim
 sed -i '/CONFIG_PACKAGE_vim/d' .config
 sed -i '/CONFIG_PACKAGE_vim-full/d' .config
