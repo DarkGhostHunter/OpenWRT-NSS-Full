@@ -6,6 +6,7 @@ touch /etc/config/plexmediaserver
 
 uci batch <<'EOF'
 delete plexmediaserver.main
+add plexmediaserver.main
 set plexmediaserver.plex_browser_root='/mnt/sda1/Media'
 set plexmediaserver.plex_drive_mnt='/mnt/sda1'
 set plexmediaserver.plex_drive_dev='/dev/sda1'
