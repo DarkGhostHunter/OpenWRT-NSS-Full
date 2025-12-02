@@ -110,6 +110,33 @@ add firewall forwarding
 set firewall.@forwarding[4].src='lan'
 set firewall.@forwarding[4].dest='tailscale'
 
+# ZeroTier Zone
+delete firewall.@zone[4]
+add firewall zone
+set firewall.@zone[4]=zone
+set firewall.@zone[4].name='zerotier'
+add_list firewall.@zone[4].network='zerotier'
+set firewall.@zone[4].input='ACCEPT'
+set firewall.@zone[4].output='ACCEPT'
+set firewall.@zone[4].forward='ACCEPT'
+set firewall.@zone[4].masq='1'
+
+delete firewall.@forwarding[5]
+add firewall forwarding
+set firewall.@forwarding[5].src='zerotier'
+set firewall.@forwarding[5].dest='lan'
+
+delete firewall.@forwarding[6]
+add firewall forwarding
+set firewall.@forwarding[6].src='zerotier'
+set firewall.@forwarding[6].dest='wan'
+
+delete firewall.@forwarding[7]
+add firewall forwarding
+set firewall.@forwarding[7].src='lan'
+set firewall.@forwarding[7].dest='zerotier'
+
+# NSS offloading
 delete firewall.qcanssecm
 set firewall.qcanssecm=include
 set firewall.qcanssecm.type='script'
