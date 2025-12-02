@@ -7,16 +7,16 @@ touch /etc/config/plexmediaserver
 uci batch <<'EOF'
 delete plexmediaserver.main
 add plexmediaserver.main
-set plexmediaserver.plex_browser_root='/mnt/sda1/Media'
-set plexmediaserver.plex_drive_mnt='/mnt/sda1'
-set plexmediaserver.plex_drive_dev='/dev/sda1'
-set plexmediaserver.plex_library_dir='/mnt/sda1/Media/.plex/Library'
-set plexmediaserver.plex_tmp_dir='/tmp/plexmediaserver'
-set plexmediaserver.plex_application_support_dir='/mnt/sda1/Media/.plex/Library/Application Support'
-set plexmediaserver.plex_compressed_archive_path='/mnt/sda1/Media/.plex/Library/Application/plexmediaserver.sqfs'
-set plexmediaserver.plex_version=''
-set plexmediaserver.plex_bin_dir=''
-set plexmediaserver.enabled='0'
+set plexmediaserver.main.plex_browser_root='/mnt/sda1/Media'
+set plexmediaserver.main.plex_drive_mnt='/mnt/sda1'
+set plexmediaserver.main.plex_drive_dev='/dev/sda1'
+set plexmediaserver.main.plex_library_dir='/mnt/sda1/Media/.plex/Library'
+set plexmediaserver.main.plex_tmp_dir='/tmp/plexmediaserver'
+set plexmediaserver.main.plex_application_support_dir='/mnt/sda1/Media/.plex/Library/Application Support'
+set plexmediaserver.main.plex_compressed_archive_path='/mnt/sda1/Media/.plex/Library/Application/plexmediaserver.sqfs'
+set plexmediaserver.main.plex_version=''
+set plexmediaserver.main.plex_bin_dir=''
+set plexmediaserver.main.enabled='0'
 EOF
 uci commit network
 }
