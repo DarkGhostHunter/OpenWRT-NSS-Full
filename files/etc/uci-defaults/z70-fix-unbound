@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# Generate stuff for unbound
+if [ -f /etc/init.d/unbound ]; then
+   mkdir -p /etc/unbound
+   [ -f /etc/ssl/certs/ca-certificates.crt ] && ln -sf /etc/ssl/certs/ca-certificates.crt /etc/unbound/ca-certificates.crt
+
+   mkdir -p /var/lib/unbound
+   chown -R unbound:unbound /etc/unbound /var/lib/unbound
+
+   # Only copy root.key if it exists (it might not if we skipped anchor)
+   if [ -f /etc/unbound/root.key ]; then
+       cp -p /etc/unbound/root.key /var/lib/unbound/
+   fi
+
+   unbound-control-setup -d /etc/unbound
+
+   chown -R unbound:unbound /etc/unbound /var/lib/unbound
+
+   uci set unbound.ub_main.unbound_control='2'
+   uci commit unbound
+fi
+
+exit 0

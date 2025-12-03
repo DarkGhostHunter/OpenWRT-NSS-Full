@@ -1,0 +1,24 @@
+#!/bin/sh
+
+# Ensure nf_conntrack disables strict TCP window checks; required on NSS-enabled routers
+# because hardware-accelerated NAT/SSL offload can cause valid SSL/TLS packets to be dropped
+# if conntrack enforces window validation. Setting this to 1 improves SSL stability.
+grep -q 'net.netfilter.nf_conntrack_tcp_no_window_check' </etc/sysctl.conf \
+    || echo 'net.netfilter.nf_conntrack_tcp_no_window_check=1' >>/etc/sysctl.conf
+
+COMMENT="# Recommended net.core.rmem_max values:
+# - 512KB (524288) for small home or office setups with light traffic,
+# - 1MB (1048576) for medium workloads such as multiple users streaming or light VPN use
+# - 2MB (2097152) for heavier scenarios like gigabit WAN links or frequent SSL/TLS tunnels
+# - 4MB (4194304) for demanding environments with high‑throughput VPNs, large file transfers,
+#   or many concurrent encrypted sessions.
+#
+# Adjust based on router memory and workload, especially if you're using Adblock, Plex or else."
+
+# Add the comment if not already present, and ensure default 512KB if option is missing
+grep -q 'Recommended net.core.rmem_max values' /etc/sysctl.conf || echo "$COMMENT" >>/etc/sysctl.conf
+
+# If the line does not exist, add it.
+grep -q 'net.core.rmem_max' < /etc/sysctl.conf || echo 'net.core.rmem_max=524288' >> /etc/sysctl.conf
+
+exit 0

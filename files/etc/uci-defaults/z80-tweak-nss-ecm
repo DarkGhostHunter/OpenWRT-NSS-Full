@@ -1,0 +1,11 @@
+#!/bin/sh
+
+# tweak ecm
+if [ -f /etc/init.d/qca-nss-ecm ]; then
+	uci set ecm.global.acceleration_engine='nss'
+	uci set ecm.general.disable_gro='1'
+
+	uci commit ecm
+fi
+
+exit 0

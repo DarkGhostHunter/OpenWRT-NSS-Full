@@ -1,0 +1,26 @@
+#!/bin/sh
+
+# ------------------------------------------------------------------
+# Disable and stop selected services
+# ------------------------------------------------------------------
+
+# All these services require configuration, except for sysntpd (the
+# system native NTP Client) because we're using chrony instead.
+SERVICES="
+plexmediaserver
+zerotier
+tailscale
+ddns
+banip
+sysntpd
+"
+
+for service in $SERVICES; do
+  # shellcheck disable=SC2086
+  if [ -f /etc/init.d/$service ]; then
+    /etc/init.d/$service disable
+    /etc/init.d/$service stop
+  fi
+done
+
+exit 0

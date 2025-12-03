@@ -1,0 +1,8 @@
+#!/bin/sh
+
+# fix btop "--utf-force" bad argument if it exist
+if [ -f /etc/profile.d/btop.sh ]; then
+   sed -i 's/--utf-force/--force-utf/g' /etc/profile.d/btop.sh
+fi
+
+exit 0

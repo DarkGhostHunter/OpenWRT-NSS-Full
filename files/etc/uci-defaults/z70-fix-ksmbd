@@ -1,0 +1,19 @@
+#!/bin/sh
+
+if [ -f /etc/init.d/ksmbd ]; then
+   # Add SMBUSER for ksmbd, with the "SMBPASSWORD" as password. User may change it later.
+   grep -q 'SMBUSER' </etc/group || echo 'SMBUSER:x:2468:SMBUSER' >>/etc/group
+   grep -q 'SMBUSER' </etc/shadow || echo 'SMBUSER:$5$CN2s9xwg8.EvN2Mp$ZZDnr1e/reUUai15L62aRCpLNRvts70dVwk.1UX2hB.:19818:0:99999:7:::' >>/etc/shadow
+   grep -q 'SMBUSER' </etc/passwd || echo 'SMBUSER:*:2468:2468:SMBUSER:/mnt:/bin/false' >>/etc/passwd
+
+   ksmbd.adduser -a SMBUSER -p SMBPASSWORD
+
+   # Check if the config template is the same as default. If it is, change it for our default.
+   if ! [ -f /etc/ksmbd/ksmbd.conf.template ] \
+      || ! grep -qE '.+' /etc/ksmbd/ksmbd.conf.template \
+      || [ "$(cat /etc/ksmbd/ksmbd.conf.template)" = "$(cat /rom/etc/ksmbd/ksmbd.conf.template)" ]; then
+       mv -f /etc/ksmbd/ksmbd.conf.template.example /etc/ksmbd/ksmbd.conf.template
+   fi
+fi
+
+exit 0

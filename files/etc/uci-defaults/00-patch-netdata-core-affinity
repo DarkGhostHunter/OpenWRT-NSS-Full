@@ -1,11 +1,8 @@
 #!/bin/sh
 
-# 1. ENSURE NETDATA IS DISABLED IN INIT SYSTEM
-# We only want it starting via rc.local, never S50.
-/etc/init.d/netdata disable
-
-# 2. PERMANENTLY PIN NETDATA TO CORE 0
-# This modifies the init script so that ANY time netdata starts 
+# We will permanently pin netdata to wokr on Core 0
+#
+# This modifies the init script so that ANY time netdata starts
 # (manually or automatically), it stays on Core 0.
 if [ -f /etc/init.d/netdata ]; then
     # Check if we haven't already patched it
@@ -15,8 +12,5 @@ if [ -f /etc/init.d/netdata ]; then
         sed -i "s|procd_set_param command /usr/sbin/netdata|procd_set_param command /usr/bin/taskset -c 0 /usr/sbin/netdata|g" /etc/init.d/netdata
     fi
 fi
-
-# 3. FIX COLLECTD LOG SPAM
-mkdir -p /tmp/rrd
 
 exit 0

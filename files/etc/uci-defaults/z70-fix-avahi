@@ -1,0 +1,10 @@
+#!/bin/sh
+
+# Add avahi group and user with the ID 105
+if [ -f /etc/init.d/avahi-daemon ]; then
+  echo "avahi:x:105:avahi" >> /etc/group
+  echo "avahi:*:105:105:avahi:/var/run/avahi-daemon:/bin/false" >> /etc/passwd
+  /etc/init.d/avahi-daemon restart
+fi
+
+exit 0

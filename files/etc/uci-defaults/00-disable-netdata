@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# ENSURE NETDATA IS DISABLED IN INIT SYSTEM
+# We only want it starting via rc.local, never S50.
+/etc/init.d/netdata disable
+
+
+
+exit 0

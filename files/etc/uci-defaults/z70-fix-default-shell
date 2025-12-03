@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# change root shell to bash
+sed -i -E s/'^(root:.*:\/bin\/)ash'/'\1bash'/ /etc/passwd
+
+exit 0

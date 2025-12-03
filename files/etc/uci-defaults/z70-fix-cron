@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# Disable Cron to avoid Busybox parsing bugs. We will enable it by default next year.
+if [ -f /etc/init.d/cron ]; then
+   /etc/init.d/cron stop
+   /etc/init.d/cron disable
+fi
+
+exit 0

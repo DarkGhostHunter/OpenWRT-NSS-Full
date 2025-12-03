@@ -148,7 +148,7 @@ If you're using this router behind a network as a bridge or DNS is handled elsew
 
 * **Help! My router restarts every 15 minutes or so!**
 
-It's because [Watchcat](files/etc/uci-defaults/z8-watchcat) default configuration. It will restart the **WAN interface** there is no Internet connection for 15 minutes.
+It's because [Watchcat](files/etc/uci-defaults/z4-watchcat) default configuration. It will restart the **WAN interface** there is no Internet connection for 15 minutes.
 
 If you are offline, disable it through the LUCI panel, via SSH (`/etc/init.d/watchcat disable && /etc/init.d/watchcat stop`) or just delete the rules.
 

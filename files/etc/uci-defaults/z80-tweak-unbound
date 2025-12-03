@@ -1,0 +1,27 @@
+#!/bin/sh
+
+# Force apply settings (removed complex guards that were causing skips)
+touch /etc/config/unbound
+
+uci -q batch <<'EOF'
+# Disable Root Zone Mirroring to prevent offline crashes/hangs
+set unbound.auth_icann.enabled='0'
+set unbound.auth_icann.fallback='0'
+
+# Optimize Resources
+set unbound.ub_main.resource='small'
+delete unbound.ub_main.recursion
+
+# Reduce Logging & Stats Overhead
+set unbound.ub_main.extended_stats='0'
+
+# Fix Web UI (LuCI) Errors
+set unbound.ub_main.unbound_control='1'
+
+# Disable Subnet Cache
+set unbound.ub_main.subnetcache='0'
+
+commit unbound
+EOF
+
+exit 0

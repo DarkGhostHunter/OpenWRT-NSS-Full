@@ -1,0 +1,7 @@
+#!/bin/sh
+
+# Ensure the RRD directory exist immediately to avoid CollectD whining
+# until the end of the first boot process.
+mkdir -p /tmp/rrd
+
+exit 0

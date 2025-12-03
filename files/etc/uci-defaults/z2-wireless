@@ -95,6 +95,10 @@ set wireless.lan_radio1.proxy_arp='1'
 set wireless.lan_radio1.multicast_to_unicast_all='0'
 set wireless.lan_radio1.key='password'
 
+# Ensure both radios use the same group rekey interval
+set wireless.lan_radio0.wpa_group_rekey='86400'
+set wireless.lan_radio1.wpa_group_rekey='86400'
+
 commit wireless
 EOF
 

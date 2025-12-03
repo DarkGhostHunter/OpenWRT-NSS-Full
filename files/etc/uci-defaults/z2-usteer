@@ -19,6 +19,11 @@ set usteer.@usteer[0].link_measurement_interval='30000'
 set usteer.@usteer[0].ssid_list='OpenWrt_WiFi'
 set usteer.@usteer[0].band_steering_min_snr='0'
 
+# Add sensible defaults for steering thresholds.
+set usteer.@usteer[0].band_steering_min_snr='-60'
+set usteer.@usteer[0].band_steering_threshold='5'
+set usteer.@usteer[0].band_steering_interval='120000'
+
 commit usteer
 EOF
 
