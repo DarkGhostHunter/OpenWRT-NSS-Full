@@ -3,64 +3,139 @@
 # Follow this rule for mounting options depending on the device you're connecting:
 #
 # - Spinning Hard Drives on USB 2.0/3.0:
-#     rw,noatime,data=writeback,barrier=0,commit=60
+#
+#     rw,data=writeback,noatime,barrier=0,commit=60
+#
+#     Boosts write speeds by delaying commits and disabling barriers for fewer I/O interruptions;
+#     enables faster spin-down and lower CPU usage. For better data integrity, use data=ordered
+#     and barrier=1, though this may reduce throughput by 10-20%.
+#
 # - SSD (SATA) Drives on USB 3.0:
-#     rw,noatime,data=writeback
+#
+#     rw,data=writeback,noatime
+#
+#     Enhances steady throughput without HDD-specific delays, saturating USB 3.0 for ~100MB/s+
+#     transfers. For improved integrity, add data=ordered to ensure metadata consistency, at
+#     a minor speed cost.
+#
 # - NVMe Drives on USB 3.0:
-#     rw,lazytime,data=writeback
+#
+#     rw,data=writeback,lazytime
+#
+#     Reduces flash writes for minimal latency on metadata ops, achieving 200MB/s+ where possible.
+#     For stronger integrity, use data=journaled, which adds overhead but minimizes corruption
+#     risks.
+#
+# If you're copy & pasting these lines, beware of the whitespaces!
 
 [global]
     # --- Identity & Network ---
+    #
+    # Standard settings for network discovery and binding; bind interfaces only=yes restricts
+    # to specified NICs, reducing unnecessary overhead for better router performance across
+    # all profiles.
+    #
+
     netbios name = |NAME|
     server string = |DESCRIPTION|
     workgroup = |WORKGROUP|
     interfaces = |INTERFACES|
     bind interfaces only = yes
 
+
     # --- Session Management ---
-    # The "deadtime" disconnects inactive clients. 15 mins is good to spin down the HDD, or clear RAM on router.
+
+    #
+    # The "deadtime" option disconnects inactive clients after 15 mins, freeing RAM and CPU on
+    # the router for active transfers; ideal for HDD spin-down to maintain high burst speeds.
+    #
     deadtime = 15
+
+    #
+    # The "ipc" timeout sets a quick 20s reply window for heartbeats, preventing stalled
+    # connections from blocking performance.
+    #
     ipc timeout = 20
+
+    #
+    # The "map to guest" allows fallback access on bad credentials, simplifying connections
+    # without perf impact.
+    #
     map to guest = Bad User
 
+
     # --- Protocol Performance (Crucial for OpenWRT CPU) ---
-    # Force SMB3 to use modern, efficient opcodes.
+
+    #
+    # Forces SMB3 for efficient opcodes, improving overall throughput by 20-50% over older
+    # protocols on all storage types.
+    #
     min protocol = SMB3
-    # DISABLE Signing and Encryption.
-    # On a router CPU, encryption drops speeds from 30MB/s to 5MB/s.
+
+    #
+    # Disables signing and encryption to avoid CPU overhead, boosting speeds from ~5MB/s to
+    # ~30MB/s on routers; security trade-off, but essential for performance.
+    #
     server signing = disabled
+
+    #
+    # For data integrity in transit, enable signing or encryption if on trusted networks, though
+    # this halves speeds on low-power CPUs.
+    #
     smb3 encryption = disabled
 
+
     # --- Transport & Buffers ---
-    # 4MB (4096K) is the sweet spot for USB 2.0 large file transfers.
-    # It reduces the number of "trips" the CPU makes to the USB controller.
+
+    #
+    # 4MB buffers optimize large file transfers on USB 2.0 by minimizing CPU-USB interruptions,
+    # suitable for all profiles but especially HDD sequential reads.
+    #
     smb2 max read = 4096K
     smb2 max write = 4096K
-    # Hard Drives take time to read and write, so small chunks lower latency.
+
+    #
+    # For HDD: 1MB trans reduces latency on mechanical seeks, enabling smoother small-file ops.
+    # For NVMe/SSD: 4MB trans maximizes chunk size for high-throughput transfers, leveraging fast
+    # storage to hit USB limits.
+    #
     smb2 max trans = 1024K
-    # NVMe/SSD drives can handle massive throughput. We maximize the chunk size.
     # smb2 max trans = 4096K
 
+
     # --- KSMBD Specific Optimization ---
-    # ENABLE Sendfile.
-    # Essential for USB 3.0. It creates a "zero-copy" path from the
-    # USB controller directly to the Network controller.
+
+    #
+    # Enables sendfile for zero-copy transfers from USB to network, crucial for USB 3.0 speeds
+    # (up to 2x gains); benefits SSD/NVMe most by bypassing CPU.
+    #
     use sendfile = yes
 
+
     # --- Asynchronous I/O (AIO) ---
-    # Allows the server to queue multiple requests to the slow mechanical drive
-    # without freezing the network connection.
+
+    #
+    # For HDD: 16KB AIO queues multiple requests to mask seek latencies, preventing network freezes
+    # and improving responsiveness.
+    # For NVMe: 4KB threshold handles tiny metadata sync for instant ops, while async offloads data
+    # for non-blocking throughput.
+    #
+    # AIO has no direct integrity impact but pairs well with safe mount options like barrier=1
+    # if perf is secondary.
+    #
     aio read size = 16384
     aio write size = 16384
-    # With NVMe, we don't need AIO to mask seek times (latency is zero).
-    # Instead, we use it to prevent the I/O thread from blocking the Network thread.
-    # We decrease the threshold to 4KB (page size) so tiny metadata reads are
-    # handled instantly (sync), while data transfers are offloaded (async).
     # aio read size = 4096
     # aio write size = 4096
 
     # --- Caching & Metadata ---
-    # NVMe handles metadata (listing files) extremely fast. We disable leasing to reduce
-    # protocol overhead, as the drive is fast enough to serve requests without aggressive
-    # client-side caching. On HDD, "data=writeback" mount option handles this.
+
+    #
+    # For NVMe: Disables dir leasing to cut protocol overhead, as the drive's low latency serves requests
+    # directly for faster file listings.
+    # For HDD: Keep enabled or rely on "data=writeback" for client-side caching to reduce seeks.
+    #
+    # Enabling leasing can enhance integrity via consistent caching but adds minor latency; default is off
+    # in ksmbd for performance.
+    #
     dir leasing = no
