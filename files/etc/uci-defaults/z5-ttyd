@@ -5,15 +5,23 @@ if /etc/has-no-defaults.sh ttyd; then
     touch /etc/config/ttyd
 
     uci -q batch <<'EOF'
-delete ttyd.ttyd
-delete ttyd.btop_server
+delete ttyd.@ttyd[0]
 
-add ttyd.btop_server
-set ttyd.btop_server.enabled='0'
-set ttyd.btop_server.command='tmux -2 new-session -A -s ttyd_system_stats /usr/bin/btop'
-set ttyd.btop_server.port='7682'
-set ttyd.btop_server.interface='lan'
-set ttyd.btop_server.client_option='title=System Stats'
+add ttyd ttyd
+set ttyd.@ttyd[0].enabled='0'
+set ttyd.@ttyd[0].command='/bin/login'
+set ttyd.@ttyd[0].port='7681'
+set ttyd.@ttyd[0].interface='lan'
+set ttyd.@ttyd[0].debug='7'
+
+add ttyd ttyd
+set ttyd.@ttyd[1].enabled='1'
+set ttyd.@ttyd[1].command='env LC_ALL=C.UTF-8 /usr/bin/tmux -u -2 new-session -A -s system_stats /usr/bin/btop --force-utf'
+set ttyd.@ttyd[1].port='7682'
+set ttyd.@ttyd[1].uid='65534'
+set ttyd.@ttyd[1].guid='65534'
+set ttyd.@ttyd[1].interface='lan'
+set ttyd.@ttyd[1].client_option='title=Statsitics'
 
 commit ttyd
 EOF
