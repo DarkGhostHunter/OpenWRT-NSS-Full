@@ -1,0 +1,73 @@
+#!/bin/sh
+
+# Default Targets: Google (8.8.8.8, 8.8.4.4) and Cloudflare (1.1.1.1, 1.0.0.1)
+TARGETS="8.8.8.8 8.8.4.4 1.1.1.1 1.0.0.1"
+REQUIRED_UP=""
+INTERFACE=""
+
+# Configuration
+TIMEOUT=5       # Timeout in seconds per ping
+COUNT=1         # Number of packets to send per target
+
+# Parse arguments
+while [ "$#" -gt 0 ]; do
+    case "$1" in
+        --targets)
+            TARGETS="$2"
+            shift 2
+            ;;
+        --required-up)
+            REQUIRED_UP="$2"
+            shift 2
+            ;;
+        --interface)
+            INTERFACE="$2"
+            shift 2
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+# Calculate total number of targets
+# We use set -- to parse the space-separated string into positional parameters
+# shellcheck disable=SC2086
+set -- $TARGETS
+TOTAL_TARGETS=$#
+
+# Logic for "At least 75%" if REQUIRED_UP is not manually set
+if [ -z "$REQUIRED_UP" ]; then
+    # Formula for Ceiling(Total * 0.75): (Total * 3 + 3) / 4 using integer math
+    REQUIRED_UP=$(( (TOTAL_TARGETS * 3 + 3) / 4 ))
+fi
+
+# Prepare extra ping options
+PING_OPTS=""
+if [ -n "$INTERFACE" ]; then
+    PING_OPTS="-I $INTERFACE"
+fi
+
+success_counter=0
+
+for ip in $TARGETS; do
+    # Ping command breakdown:
+    # -c $COUNT: Send only 1 packet
+    # -W $TIMEOUT: Wait max 5 seconds for a response
+    # -q: Quiet output
+    # -I $INTERFACE: Use specific interface (optional)
+    # >/dev/null 2>&1: Suppress all text output
+    if ping -c "$COUNT" -W "$TIMEOUT" -q $PING_OPTS "$ip" >/dev/null 2>&1; then
+        success_counter=$((success_counter + 1))
+    fi
+done
+
+# Check if we met the threshold
+if [ "$success_counter" -ge "$REQUIRED_UP" ]; then
+    # Connection is considered UP
+    exit 0
+else
+    # Connection is considered DOWN
+    exit 1
+fi

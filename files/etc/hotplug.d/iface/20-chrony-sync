@@ -5,7 +5,9 @@
 [ "$ACTION" = "ifup" ] || exit 0
 
 # Check if the tool exists and runs it
-if [ -x /usr/sbin/chrony-hotplug ]; then
-    logger -t chrony-hotplug "Interface $INTERFACE is up. Triggering time sync..."
+if [ -x /usr/sbin/chrony-hotplug ] && /usr/bin/has-internet; then
+    logger -t chrony-hotplug "Interface $INTERFACE is up and connected to the Internet. Triggering time sync..."
     /usr/sbin/chrony-hotplug
+else
+    logger -t chrony-hotplug "Interface $INTERFACE is up but not connected to Internet. Aborting time sync..."
 fi
