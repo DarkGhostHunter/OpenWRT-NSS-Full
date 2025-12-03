@@ -1,0 +1,23 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+USE_PROCD=1
+
+# Path to the parser script
+PARSER_SCRIPT="/usr/lib/unbound/parse_static.sh"
+
+start_service() {
+    # Run the parser immediately on start/reload
+    if [ -x "$PARSER_SCRIPT" ]; then
+        "$PARSER_SCRIPT"
+        logger -t unbound-static "Updated Unbound static leases from DHCP config"
+    else
+        logger -t unbound-static "Error: $PARSER_SCRIPT not found or not executable"
+    fi
+}
+
+service_triggers() {
+    # This registers a watch on /etc/config/dhcp
+    # Whenever that file changes, this service will 'reload', calling start_service()
+    procd_add_reload_trigger "dhcp"
+}

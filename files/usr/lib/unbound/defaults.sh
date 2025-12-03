@@ -30,6 +30,7 @@ UB_ZONE_CONF=$UB_VARDIR/zone.conf.tmp
 UB_CTRL_CONF=$UB_VARDIR/ctrl.conf.tmp
 UB_SRVMASQ_CONF=$UB_VARDIR/dnsmasq_srv.conf.tmp
 UB_EXTMASQ_CONF=$UB_VARDIR/dnsmasq_ext.conf.tmp
+UB_RPZCNAME_CONF=$UB_VARDIR/unbound_rpz_cname.conf
 
 # conf as found
 UB_TOTAL_CONF=$UB_VARDIR/unbound.conf
@@ -44,7 +45,7 @@ UB_RESOLV_AUTO=/tmp/resolv.conf.d/resolv.conf.auto
 # TLS keys
 UB_TLS_KEY_FILE="TLS server UCI not implemented"
 UB_TLS_PEM_FILE="TLS server UCI not implemented"
-UB_TLS_ETC_FILE=$UB_VARDIR/ca-certificates.crt
+UB_TLS_ETC_FILE=/etc/ssl/certs/ca-certificates.crt
 
 # start files
 UB_RKEY_FILE=$UB_VARDIR/root.key
@@ -72,4 +73,3 @@ UB_CONTROL=/usr/sbin/unbound-control
 UB_CONTROL_CFG="$UB_CONTROL -c $UB_TOTAL_CONF"
 
 ##############################################################################
-

@@ -26,11 +26,11 @@
 # while useful (sh)ellcheck is pedantic and noisy
 # shellcheck disable=1091,2002,2004,2034,2039,2086,2094,2140,2154,2155
 
-UB_B_AUTH_ROOT=1
+UB_B_AUTH_ROOT=0
 UB_B_DNS_ASSIST=0
-UB_B_DNSSEC=1
-UB_B_DNS64=1
-UB_B_EXT_STATS=1
+UB_B_DNSSEC=0
+UB_B_DNS64=0
+UB_B_EXT_STATS=0
 UB_B_GATE_NAME=0
 UB_B_HIDE_BIND=1
 UB_B_IF_AUTO=1
@@ -38,33 +38,33 @@ UB_B_LOCL_BLCK=0
 UB_B_LOCL_SERV=1
 UB_B_MAN_CONF=0
 UB_B_NTP_BOOT=1
-UB_B_QUERY_MIN=1
+UB_B_QUERY_MIN=0
 UB_B_QRY_MINST=0
-UB_B_SLAAC6_MAC=1
+UB_B_SLAAC6_MAC=0
 
-UB_D_CONTROL=1
-UB_D_DOMAIN_TYPE='static'
+UB_D_CONTROL=0
+UB_D_DOMAIN_TYPE=static
+UB_D_DHCP_LINK=none
 UB_D_EXTRA_DNS=0
-UB_D_LAN_FQDN=4
+UB_D_LAN_FQDN=0
 UB_D_PRIV_BLCK=1
-UB_D_PROTOCOL='ip6_local'
-UB_D_RESOURCE='default'
-UB_D_RECURSION='agressive'
+UB_D_PROTOCOL=mixed
+UB_D_RESOURCE=small
+UB_D_RECURSION=passive
 UB_D_VERBOSE=1
 UB_D_WAN_FQDN=0
-UB_D_DHCP_LINK='odhcpd'
 
 UB_IP_DNS64="64:ff9b::/96"
 
 UB_N_EDNS_SIZE=1232
 UB_N_RX_PORT=53
-UB_N_ROOT_AGE=5
+UB_N_ROOT_AGE=9
 UB_N_THREADS=1
 UB_N_RATE_LMT=0
 
 UB_TTL_MIN=120
-UB_TXT_DOMAIN='lan'
-UB_TXT_HOSTNAME='OpenWrt_WRX36'
+UB_TXT_DOMAIN=lan
+UB_TXT_HOSTNAME=thisrouter
 
 ##############################################################################
 
@@ -222,7 +222,6 @@ bundle_domain_insecure() {
 unbound_mkdir() {
   local filestuff
 
-  mkdir -p $UB_VARDIR
 
   if [ "$UB_D_DHCP_LINK" = "odhcpd" ] ; then
     local dhcp_origin=$( uci_get dhcp.@odhcpd[0].leasefile )
@@ -249,58 +248,22 @@ unbound_mkdir() {
   fi
 
 
-  # Blind copy /etc/unbound to /var/lib/unbound and ensure root.key exists
-#  rm -f $UB_VARDIR/dhcp_*
+  # Blind copy /etc/unbound to /var/lib/unbound
+  mkdir -p $UB_VARDIR
+  rm -f $UB_VARDIR/dhcp_*
   touch $UB_TOTAL_CONF
-  chown -R unbound:unbound $UB_ETCDIR 
-  cp -p $UB_ETCDIR/unbound_srv.conf $UB_VARDIR
-  cp -p $UB_ETCDIR/unbound_ext.conf $UB_VARDIR
-  chown -R unbound:unbound $UB_VARDIR
-
+  cp -p $UB_ETCDIR/*.conf $UB_VARDIR/
+  cp -p $UB_ETCDIR/root.* $UB_VARDIR/
 
   if [ ! -d $UB_VARDIR/root-anchors ]; then
     mkdir -p $UB_VARDIR/root-anchors
     chown -R unbound:unbound  $UB_VARDIR/root-anchors
   fi
 
-  if [ ! -s $UB_ETCDIR/ca-certificates.crt ]; then
-    cp -p /etc/ssl/certs/ca-certificates.crt $UB_ETCDIR/ca-certificates.crt 
-    chown unbound:unbound $UB_ETCDIR/ca-certificates.crt 
-  fi
-
-  if [ ! -s $UB_VARDIR/ca-certificates.crt ]; then
-    cp -p $UB_ETCDIR/ca-certificates.crt $UB_VARDIR/ca-certificates.crt
-  fi
-
-  if [ ! -s $UB_VARDIR/icannbundle.pem ]; then
-    cp -p $UB_ETCDIR/icannbundle.pem $UB_VARDIR/icannbundle.pem
-  fi
-
-  if [ ! -s $UB_VARDIR/root-anchors/root-anchors.p7s ]; then
-    cp -p $UB_ETCDIR/root-anchors/root-anchors.p7s $UB_VARDIR/root-anchors/root-anchors.p7s
-  fi
-
-  if [ ! -s $UB_VARDIR/root-anchors/root-anchors.xml ]; then
-    cp -p $UB_ETCDIR/root-anchors/root-anchors.xml $UB_VARDIR/root-anchors/root-anchors.xml
-  fi
-
-  if [ ! -s $UB_VARDIR/unbound_srv.conf ]; then
-    cp -p $UB_ETCDIR/unbound_srv.conf $UB_VARDIR/unbound_srv.conf
-  fi
-
-  if [ ! -s $UB_VARDIR/unbound_ext.conf ]; then
-    cp -p $UB_ETCDIR/unbound_ext.conf $UB_VARDIR/unbound_ext.conf
-  fi
-
-
-  if [ ! -s $UB_RHINT_FILE ] ; then
-    if [ -s /usr/share/dns/root.hints ] ; then
+  if [ ! -f $UB_RHINT_FILE ] ; then
+    if [ -f /usr/share/dns/root.hints ] ; then
       # Debian-like package dns-root-data
       cp -p /usr/share/dns/root.hints $UB_RHINT_FILE
-      
-    elif [ -s $UB_ETCDIR/root.hints ] ; then
-      # Debian-like package dns-root-data
-      cp -p $UB_ETCDIR/root.hints $UB_RHINT_FILE
 
     elif [ $UB_B_READY -eq 0 ] ; then
       logger -t unbound -s "default root hints (built in root-servers.net)"
@@ -308,30 +271,25 @@ unbound_mkdir() {
   fi
 
 
-  if [ ! -s $UB_RKEY_FILE ] ; then
-    if [ -s /usr/share/dns/root.key ] ; then
+  if [ ! -f $UB_RKEY_FILE ] ; then
+    if [ -f /usr/share/dns/root.key ] ; then
       # Debian-like package dns-root-data
       cp -p /usr/share/dns/root.key $UB_RKEY_FILE
-      
-    elif [ -s $UB_ETCDIR/root.key ] ; then
-      # Debian-like package dns-root-data
-      cp -p $UB_ETCDIR/root.key $UB_RKEY_FILE
+
+    # DISABLE BOOT-TIME DOWNLOAD. This will run on boot and will make the
+    # router think it hasn't completed the first time boot and else.
+    # elif [ -x $UB_ANCHOR ] ; then
+    #  $UB_ANCHOR -a $UB_RKEY_FILE
 
     elif [ $UB_B_READY -eq 0 ] ; then
       logger -t unbound -s "default trust anchor (built in root DS record)"
     fi
   fi
-  # DISABLE BOOT-TIME DOWNLOAD. This will run on boot and will make the
-  # router think it hasn't completed the first time boot and else.
-  # if [ -x $UB_ANCHOR ] ; then
-  #  $UB_ANCHOR -a $UB_RKEY_FILE
-  #  chown unbound:unbound $UB_RKEY_FILE
-  # fi
 
 
-  if [ -s $UB_RKEY_FILE.keep ] ; then
+  if [ -f $UB_RKEY_FILE.keep ] ; then
     # root.key.keep is reused if newest
-    cp -up $UB_RKEY_FILE.keep $UB_RKEY_FILE
+    cp -u $UB_RKEY_FILE.keep $UB_RKEY_FILE
     rm -f $UB_RKEY_FILE.keep
   fi
 
@@ -341,39 +299,25 @@ unbound_mkdir() {
   chmod 755 $UB_VARDIR
   chmod 644 $UB_VARDIR/*
 
+
   if [ -x /usr/sbin/unbound-control-setup ] ; then
-    case "$UB_D_CONTROL" in
-      [2-3])
-        if [ ! -s $UB_ETCDIR/$UB_CTLKEY_FILE ] || [ ! -s $UB_ETCDIR/$UB_CTLPEM_FILE ] || [ ! -s $UB_ETCDIR/$UB_SRVKEY_FILE ] || [ ! -s $UB_ETCDIR/$UB_SRVPEM_FILE ] ; then
+    if [ ! -f $UB_ETCDIR/$UB_CTLKEY_FILE ] || [ ! -f $UB_ETCDIR/$UB_CTLPEM_FILE ] \
+    || [ ! -f $UB_ETCDIR/$UB_SRVKEY_FILE ] || [ ! -f $UB_ETCDIR/$UB_SRVPEM_FILE ] ; then
+      case "$UB_D_CONTROL" in
+        [2-3])
           # unbound-control-setup for encrypt opt. 2 and 3, but not 4 "static"
-          /usr/sbin/unbound-control-setup -r -d $UB_ETCDIR
-          chown unbound:unbound  $UB_ETCDIR/$UB_CTLKEY_FILE $UB_ETCDIR/$UB_CTLPEM_FILE $UB_ETCDIR/$UB_SRVKEY_FILE $UB_ETCDIR/$UB_SRVPEM_FILE
-          chmod 640 $UB_ETCDIR/$UB_CTLKEY_FILE $UB_ETCDIR/$UB_CTLPEM_FILE $UB_ETCDIR/$UB_SRVKEY_FILE $UB_ETCDIR/$UB_SRVPEM_FILE
-          chown -R unbound:unbound $UB_ETCDIR
-                    
-        fi
-        if [ ! -s $UB_VARDIR/$UB_CTLKEY_FILE ] || [ ! -s $UB_VARDIR/$UB_CTLPEM_FILE ] || [ ! -s $UB_VARDIR/$UB_SRVKEY_FILE ] || [ ! -s $UB_VARDIR/$UB_SRVPEM_FILE ] ; then
-          # unbound-control-setup for encrypt opt. 2 and 3, but not 4 "static"
-          cp -p $UB_ETCDIR/$UB_CTLKEY_FILE $UB_ETCDIR/$UB_CTLPEM_FILE $UB_ETCDIR/$UB_SRVKEY_FILE $UB_ETCDIR/$UB_SRVPEM_FILE $UB_VARDIR
-        fi
+          /usr/sbin/unbound-control-setup -d $UB_ETCDIR
 
-        if { [ -f $UB_VARDIR/$UB_CTLKEY_FILE ] && [ ! -s $UB_VARDIR/$UB_CTLKEY_FILE ] ; } || { [ -f $UB_VARDIR/$UB_CTLPEM_FILE ] && [ ! -s $UB_VARDIR/$UB_CTLPEM_FILE ] ; } || { [ -f $UB_VARDIR/$UB_SRVKEY_FILE ] && [ ! -s $UB_VARDIR/$UB_SRVKEY_FILE ] ; } || { [ -f $UB_VARDIR/$UB_SRVPEM_FILE ] && [ ! -s $UB_VARDIR/$UB_SRVPEM_FILE ] ; } ; then
-	  rm -f $UB_VARDIR/$UB_CTLKEY_FILE $UB_VARDIR/$UB_CTLPEM_FILE $UB_VARDIR/$UB_SRVKEY_FILE $UB_VARDIR/$UB_SRVPEM_FILE
-	  /usr/sbin/unbound-control-setup -r -d $UB_VARDIR
-        else
-          /usr/sbin/unbound-control-setup -d $UB_VARDIR || { rm $UB_VARDIR/$UB_CTLKEY_FILE $UB_VARDIR/$UB_CTLPEM_FILE $UB_VARDIR/$UB_SRVKEY_FILE $UB_VARDIR/$UB_SRVPEM_FILE; /usr/sbin/unbound-control-setup -r -d $UB_VARDIR; }
-        fi
+          chown -R unbound:unbound  $UB_ETCDIR/$UB_CTLKEY_FILE $UB_ETCDIR/$UB_CTLPEM_FILE \
+                                    $UB_ETCDIR/$UB_SRVKEY_FILE $UB_ETCDIR/$UB_SRVPEM_FILE
 
-        chown unbound:unbound  $UB_VARDIR/$UB_CTLKEY_FILE $UB_VARDIR/$UB_CTLPEM_FILE $UB_VARDIR/$UB_SRVKEY_FILE $UB_VARDIR/$UB_SRVPEM_FILE
-        chown -R unbound:unbound $UB_VARDIR
-        chmod 640  $UB_VARDIR/$UB_CTLKEY_FILE $UB_VARDIR/$UB_CTLPEM_FILE $UB_VARDIR/$UB_SRVKEY_FILE $UB_VARDIR/$UB_SRVPEM_FILE
-      ;;
-    esac
+          chmod 640 $UB_ETCDIR/$UB_CTLKEY_FILE $UB_ETCDIR/$UB_CTLPEM_FILE \
+                    $UB_ETCDIR/$UB_SRVKEY_FILE $UB_ETCDIR/$UB_SRVPEM_FILE
+          ;;
+      esac
+    fi
   fi
 
-  if [[ -f $UB_VARDIR/odhcpd/dhcp.leases ]]; then
-    chown root:root $UB_VARDIR/odhcpd/dhcp.leases
-  fi
 
   if [ -f "$UB_TIME_FILE" ] ; then
     # NTP is done so its like you actually had an RTC
@@ -396,48 +340,18 @@ unbound_mkdir() {
 ##############################################################################
 
 unbound_control() {
-  echo "# $UB_CTRL_CONF generated by UCI $( date -Is )" > $UB_CTRL_CONF
+  echo "# $UB_CTRL_CONF generated by UCI" > $UB_CTRL_CONF
 
 
   if [ $UB_D_CONTROL -gt 1 ] ; then
-    if [ -x /usr/sbin/unbound-control-setup ] ; then
-      case "$UB_D_CONTROL" in
-       [2-3])
-        if [ ! -s $UB_ETCDIR/$UB_CTLKEY_FILE ] || [ ! -s $UB_ETCDIR/$UB_CTLPEM_FILE ] || [ ! -s $UB_ETCDIR/$UB_SRVKEY_FILE ] || [ ! -s $UB_ETCDIR/$UB_SRVPEM_FILE ] ; then
-          # unbound-control-setup for encrypt opt. 2 and 3, but not 4 "static"
-          /usr/sbin/unbound-control-setup -r -d $UB_ETCDIR
-          chown unbound:unbound  $UB_ETCDIR/$UB_CTLKEY_FILE $UB_ETCDIR/$UB_CTLPEM_FILE $UB_ETCDIR/$UB_SRVKEY_FILE $UB_ETCDIR/$UB_SRVPEM_FILE
-          chmod 640 $UB_ETCDIR/$UB_CTLKEY_FILE $UB_ETCDIR/$UB_CTLPEM_FILE $UB_ETCDIR/$UB_SRVKEY_FILE $UB_ETCDIR/$UB_SRVPEM_FILE
-          chown -R unbound:unbound $UB_ETCDIR
-                    
-        fi
-        if [ ! -s $UB_VARDIR/$UB_CTLKEY_FILE ] || [ ! -s $UB_VARDIR/$UB_CTLPEM_FILE ] || [ ! -s $UB_VARDIR/$UB_SRVKEY_FILE ] || [ ! -s $UB_VARDIR/$UB_SRVPEM_FILE ] ; then
-          # unbound-control-setup for encrypt opt. 2 and 3, but not 4 "static"
-          cp -p -f $UB_ETCDIR/$UB_CTLKEY_FILE $UB_ETCDIR/$UB_CTLPEM_FILE $UB_ETCDIR/$UB_SRVKEY_FILE $UB_ETCDIR/$UB_SRVPEM_FILE $UB_VARDIR
-        fi
-
-        if { [ -f $UB_VARDIR/$UB_CTLKEY_FILE ] && [ ! -s $UB_VARDIR/$UB_CTLKEY_FILE ] ; } || { [ -f $UB_VARDIR/$UB_CTLPEM_FILE ] && [ ! -s $UB_VARDIR/$UB_CTLPEM_FILE ] ; } || { [ -f $UB_VARDIR/$UB_SRVKEY_FILE ] && [ ! -s $UB_VARDIR/$UB_SRVKEY_FILE ] ; } || { [ -f $UB_VARDIR/$UB_SRVPEM_FILE ] && [ ! -s $UB_VARDIR/$UB_SRVPEM_FILE ] ; } ; then
-	  rm -f $UB_VARDIR/$UB_CTLKEY_FILE $UB_VARDIR/$UB_CTLPEM_FILE $UB_VARDIR/$UB_SRVKEY_FILE $UB_VARDIR/$UB_SRVPEM_FILE
-	  /usr/sbin/unbound-control-setup -r -d $UB_VARDIR
-        else
-          /usr/sbin/unbound-control-setup -d $UB_VARDIR || { rm $UB_VARDIR/$UB_CTLKEY_FILE $UB_VARDIR/$UB_CTLPEM_FILE $UB_VARDIR/$UB_SRVKEY_FILE $UB_VARDIR/$UB_SRVPEM_FILE; /usr/sbin/unbound-control-setup -r -d $UB_VARDIR; }
-        fi
-
-        chown unbound:unbound  $UB_VARDIR/$UB_CTLKEY_FILE $UB_VARDIR/$UB_CTLPEM_FILE $UB_VARDIR/$UB_SRVKEY_FILE $UB_VARDIR/$UB_SRVPEM_FILE
-        chmod 640 $UB_VARDIR/$UB_CTLKEY_FILE $UB_VARDIR/$UB_CTLPEM_FILE $UB_VARDIR/$UB_SRVKEY_FILE $UB_VARDIR/$UB_SRVPEM_FILE
-  
-        if [[ -f $UB_VARDIR/odhcpd/dhcp.leases ]]; then
-           chown root:root $UB_VARDIR/odhcpd/dhcp.leases
-        fi
-
-       ;;
-      esac
-    fi
-    if [ ! -s $UB_ETCDIR/$UB_CTLKEY_FILE ] || [ ! -s $UB_ETCDIR/$UB_CTLPEM_FILE ] || [ ! -f $UB_ETCDIR/$UB_SRVKEY_FILE ] || [ ! -f $UB_ETCDIR/$UB_SRVPEM_FILE ] ; then
+    if [ ! -f $UB_ETCDIR/$UB_CTLKEY_FILE ] || [ ! -f $UB_ETCDIR/$UB_CTLPEM_FILE ] \
+    || [ ! -f $UB_ETCDIR/$UB_SRVKEY_FILE ] || [ ! -f $UB_ETCDIR/$UB_SRVPEM_FILE ] ; then
       # Key files need to be present; if unbound-control-setup was found, then
       # they might have been made during unbound_makedir() above.
       UB_D_CONTROL=0
-      
+    else
+      cp -a $UB_ETCDIR/$UB_CTLKEY_FILE $UB_ETCDIR/$UB_CTLPEM_FILE \
+            $UB_ETCDIR/$UB_SRVKEY_FILE $UB_ETCDIR/$UB_SRVPEM_FILE $UB_VARDIR/
     fi
   fi
 
@@ -502,7 +416,7 @@ unbound_zone() {
   local server port tls_port tls_index tls_suffix url_dir dns_ast
 
   if [ ! -f "$UB_ZONE_CONF" ] ; then
-    echo "# $UB_ZONE_CONF generated by UCI $( date -Is )" > $UB_ZONE_CONF
+    echo "# $UB_ZONE_CONF generated by UCI" > $UB_ZONE_CONF
   fi
 
 
@@ -626,7 +540,8 @@ unbound_zone() {
 
   case $zone_type in
     auth_zone)
-      if [ $UB_B_NTP_BOOT -eq 0 ] && [ -n "$UB_LIST_ZONE_NAMES" ] && { [ -n "$url_dir" ] || [ -n "$UB_LIST_ZONE_SERVERS" ] ; } ; then
+      if [ $UB_B_NTP_BOOT -eq 0 ] && [ -n "$UB_LIST_ZONE_NAMES" ] \
+      && { [ -n "$url_dir" ] || [ -n "$UB_LIST_ZONE_SERVERS" ] ; } ; then
         # Note AXFR may have large downloads. If NTP restart is configured,
         # then this can cause procd to force a process kill.
         for zone_name in $UB_LIST_ZONE_NAMES ; do
@@ -670,7 +585,9 @@ unbound_zone() {
 
       if [ -n "$UB_LIST_ZONE_NAMES" ] && [ -n "$UB_LIST_ZONE_SERVERS" ] ; then
         for server in $UB_LIST_ZONE_SERVERS ; do
-          if [ "$( valid_subnet_any $server )" = "ok" ] || { [ "$( local_subnet $server )" = "ok" ] && [ $dns_ast -gt 0 ] ; } ; then
+          if [ "$( valid_subnet_any $server )" = "ok" ] \
+          || { [ "$( local_subnet $server )" = "ok" ] \
+            && [ $dns_ast -gt 0 ] ; } ; then
             case $server in
               *@[0-9]*|*#[A-Za-z0-9]*)
                 # unique Unbound option for server address
@@ -762,7 +679,7 @@ unbound_conf() {
 
   {
     # server: for this whole function
-    echo "# $UB_CORE_CONF generated by UCI $( date -Is )"
+    echo "# $UB_CORE_CONF generated by UCI"
     echo "server:"
     echo "  username: unbound"
     echo "  chroot: $UB_VARDIR"
@@ -1003,6 +920,13 @@ unbound_conf() {
   fi
 
 
+  case $moduleopts in
+  *respip*)
+    modulestring="respip $modulestring"
+    ;;
+  esac
+
+
   {
     # Print final module string
     echo "  module-config: \"$modulestring\""
@@ -1182,7 +1106,7 @@ unbound_hostname() {
   local ulaprefix hostfqdn name names namerec ptrrec
   local zonetype=0
 
-  echo "# $UB_HOST_CONF generated by UCI $( date -Is )" > $UB_HOST_CONF
+  echo "# $UB_HOST_CONF generated by UCI" > $UB_HOST_CONF
 
 
   if [ "$UB_D_DHCP_LINK" = "dnsmasq" ] ; then
@@ -1421,17 +1345,17 @@ unbound_uci() {
   hostnm=$( uci_get system.@system[0].hostname | awk '{print tolower($0)}' )
   UB_TXT_HOSTNAME=${hostnm:-thisrouter}
 
-  config_get_bool UB_B_SLAAC6_MAC "$cfg" dhcp4_slaac6 1
-  config_get_bool UB_B_DNS64      "$cfg" dns64 1
-  config_get_bool UB_B_EXT_STATS  "$cfg" extended_stats 1
+  config_get_bool UB_B_SLAAC6_MAC "$cfg" dhcp4_slaac6 0
+  config_get_bool UB_B_DNS64      "$cfg" dns64 0
+  config_get_bool UB_B_EXT_STATS  "$cfg" extended_stats 0
   config_get_bool UB_B_HIDE_BIND  "$cfg" hide_binddata 1
   config_get_bool UB_B_LOCL_SERV  "$cfg" localservice 1
   config_get_bool UB_B_MAN_CONF   "$cfg" manual_conf 0
-  config_get_bool UB_B_QUERY_MIN  "$cfg" query_minimize 1
+  config_get_bool UB_B_QUERY_MIN  "$cfg" query_minimize 0
   config_get_bool UB_B_QRY_MINST  "$cfg" query_min_strict 0
-  config_get_bool UB_B_AUTH_ROOT  "$cfg" prefetch_root 1
+  config_get_bool UB_B_AUTH_ROOT  "$cfg" prefetch_root 0
   config_get_bool UB_B_LOCL_BLCK  "$cfg" rebind_localhost 0
-  config_get_bool UB_B_DNSSEC     "$cfg" validator 1
+  config_get_bool UB_B_DNSSEC     "$cfg" validator 0
   config_get_bool UB_B_NTP_BOOT   "$cfg" validator_ntp 1
   config_get_bool UB_B_IF_AUTO    "$cfg" interface_auto 1
 
@@ -1439,19 +1363,19 @@ unbound_uci() {
 
   config_get UB_N_EDNS_SIZE "$cfg" edns_size 1232
   config_get UB_N_RX_PORT   "$cfg" listen_port 53
-  config_get UB_N_ROOT_AGE  "$cfg" root_age 5
+  config_get UB_N_ROOT_AGE  "$cfg" root_age 9
   config_get UB_N_THREADS   "$cfg" num_threads 1
   config_get UB_N_RATE_LMT  "$cfg" rate_limit 0
 
-  config_get UB_D_CONTROL     "$cfg" unbound_control 1
+  config_get UB_D_CONTROL     "$cfg" unbound_control 0
   config_get UB_D_DOMAIN_TYPE "$cfg" domain_type static
-  config_get UB_D_DHCP_LINK   "$cfg" dhcp_link odhcpd
+  config_get UB_D_DHCP_LINK   "$cfg" dhcp_link none
   config_get UB_D_EXTRA_DNS   "$cfg" add_extra_dns 0
-  config_get UB_D_LAN_FQDN    "$cfg" add_local_fqdn 4
+  config_get UB_D_LAN_FQDN    "$cfg" add_local_fqdn 0
   config_get UB_D_PRIV_BLCK   "$cfg" rebind_protection 1
-  config_get UB_D_PROTOCOL    "$cfg" protocol ip6_local
-  config_get UB_D_RECURSION   "$cfg" recursion agressive
-  config_get UB_D_RESOURCE    "$cfg" resource default 
+  config_get UB_D_PROTOCOL    "$cfg" protocol mixed
+  config_get UB_D_RECURSION   "$cfg" recursion passive
+  config_get UB_D_RESOURCE    "$cfg" resource small
   config_get UB_D_VERBOSE     "$cfg" verbosity 1
   config_get UB_D_WAN_FQDN    "$cfg" add_wan_fqdn 0
 
@@ -1462,11 +1386,6 @@ unbound_uci() {
   config_list_foreach "$cfg" domain_insecure bundle_domain_insecure
   config_list_foreach "$cfg" iface_lan bundle_lan_networks
   config_list_foreach "$cfg" iface_wan bundle_wan_networks
-
-  # OVERRIDE ENCRYPTED CONTROL SINCE IT BREAKS
-  if [ $UB_D_CONTROL -gt 1 ] ; then
-    UB_D_CONTROL=1
-  fi
 
   if [ "$UB_D_DHCP_LINK" = "none" ] ; then
     config_get_bool UB_B_DNSMASQ   "$cfg" dnsmasq_link_dns 0
@@ -1536,7 +1455,7 @@ unbound_include() {
   local adb_enabled
   local adb_files=$( ls $UB_VARDIR/adb_list.* 2>/dev/null )
 
-  echo "# $UB_TOTAL_CONF generated by UCI $( date -Is )" > $UB_TOTAL_CONF
+  echo "# $UB_TOTAL_CONF generated by UCI" > $UB_TOTAL_CONF
 
 
   if [ -f "$UB_CORE_CONF" ] ; then
@@ -1568,18 +1487,19 @@ unbound_include() {
       echo "include: $UB_DHCP_CONF"
       echo
     } >> $UB_TOTAL_CONF
-    chown unbound:unbound "$UB_DHCP_CONF"
   fi
 
 
-  if [ -z "$adb_files" ] || [  ! -x /usr/bin/adblock.sh ] \
-  || [ ! -x /etc/init.d/adblock ] ; then
+  if [ -z "$adb_files" ]; then
     adb_enabled=0
 
-  elif /etc/init.d/adblock enabled ; then
+  elif { [ -x /etc/init.d/adblock-fast ] && /etc/init.d/adblock-fast enabled; } \
+  || { [ -x /usr/bin/adblock.sh ] && [ -x /etc/init.d/adblock ] \
+  &&  /etc/init.d/adblock enabled; }; then
     adb_enabled=1
     {
-      # Pull in your selected openwrt/pacakges/net/adblock generated lists
+      # Pull in your selected openwrt/pacakges/net/adblock or
+      # openwrt/pacakges/net/adblock-fast generated lists
       echo "include: $UB_VARDIR/adb_list.*"
       echo
     } >> $UB_TOTAL_CONF
@@ -1626,7 +1546,6 @@ unbound_include() {
       echo
     } >> $UB_TOTAL_CONF
   fi
-  chown unbound:unbound $UB_TOTAL_CONF
 }
 
 ##############################################################################
@@ -1654,6 +1573,18 @@ resolv_setup() {
       echo "nameserver ::1"
       echo "search $UB_TXT_DOMAIN."
     } > $UB_RESOLV_CONF
+  fi
+}
+
+bundle_dhcp_hosts() {
+  local cfg="$1"
+  local dhcp_name dhcp_ip
+  config_get dhcp_name "$cfg" name
+  config_get dhcp_ip "$cfg" ip
+
+  if [ -n "$dhcp_name" ] && [ -n "$dhcp_ip" ] ; then
+    echo "local-data: \"$dhcp_name.$UB_TXT_DOMAIN A $dhcp_ip\"" >> "$UB_HOST_CONF"
+    echo "local-data-ptr: \"$dhcp_ip $dhcp_name.$UB_TXT_DOMAIN\"" >> "$UB_HOST_CONF"
   fi
 }
 
@@ -1693,4 +1624,3 @@ unbound_start() {
 }
 
 ##############################################################################
-

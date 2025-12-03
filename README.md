@@ -34,6 +34,7 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
     * **[Easy SMB shares](files/etc/ksmbd/ksmbd.conf.template.example):** Robust, easy to use `ksmbd` template to mount your SSD/HDD/NVMe. Hardcoded `SMBUSER:SMBPASSWORD`.
     * **[BanIP](https://openwrt.org/docs/guide-user/services/banip):** Want to block an IP, a Country or a social network? Now you can.
     * **[TTYD](https://tsl0922.github.io/ttyd/):** Terminal on the web panel (because sometimes you don't have access to SSH).
+    * **DHCP Static Lease fixes:** `odhcpd` does not read your DHCP static leases. [Now](files/etc/init.d/unbound-static) [it](files/etc/uci-defaults/z70-fix-unbound-static) [does](files/usr/lib/unbound/parse_static.sh). 
 
 ### Build
 
