@@ -23,9 +23,13 @@
                 
                 # Fix permissions
                 chown unbound:unbound "$UB_RKEY_FILE"
-                
-                logger -t unbound-anchor "Root Anchor updated. Restarting Unbound..."
-                /etc/init.d/unbound restart
+
+                logger -t unbound-anchor "Root Anchor updated."
+
+                if /etc/init.d/unbound running; then
+                    logger -t unbound-anchor "Restarting Unbound..."
+                    /etc/init.d/unbound restart
+                fi
             fi
             break
         fi
