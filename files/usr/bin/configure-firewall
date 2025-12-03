@@ -67,14 +67,6 @@ allow_wan_management() {
 
     /etc/init.d/firewall enable
 
-    # 1. Allow Ping (ICMP)
-    uci set firewall.allow_ping_wan=rule
-    uci set firewall.allow_ping_wan.name='Allow-Ping-WAN'
-    uci set firewall.allow_ping_wan.src='wan'
-    uci set firewall.allow_ping_wan.proto='icmp'
-    uci set firewall.allow_ping_wan.target='ACCEPT'
-    uci set firewall.allow_ping_wan.enabled='1'
-
     # 2. Allow SSH
     uci set firewall.allow_ssh_wan=rule
     uci set firewall.allow_ssh_wan.name='Allow-SSH-WAN'
