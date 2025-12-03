@@ -1,10 +1,10 @@
 #!/bin/sh
 
-{ [ -f /etc/config/plexmediaserver ] && sed s/'[[:space:]]'//g /etc/config/plexmediaserver | grep -qE '.+' && [ -f /rom/etc/config/plexmediaserver ] && sed s/'[[:space:]]'//g /rom/etc/config/plexmediaserver | grep -qE '.+' && ! [ "$(cat /etc/config/plexmediaserver)" = "$(cat /rom/etc/config/plexmediaserver)" ]; } || {
+if /etc/has-no-defaults.sh plexmediaserver; then
 
-touch /etc/config/plexmediaserver
+    touch /etc/config/plexmediaserver
 
-uci batch <<'EOF'
+    uci -q batch <<'EOF'
 delete plexmediaserver.main
 add plexmediaserver.main
 set plexmediaserver.main.plex_browser_root='/mnt/sda1/Media'
@@ -17,7 +17,10 @@ set plexmediaserver.main.plex_compressed_archive_path='/mnt/sda1/Media/.plex/Lib
 set plexmediaserver.main.plex_version=''
 set plexmediaserver.main.plex_bin_dir=''
 set plexmediaserver.main.enabled='0'
+
+commit plexmediaserver
 EOF
-uci commit network
-}
+
+fi
+
 exit 0

@@ -1,10 +1,10 @@
 #!/bin/sh
 
-{ [ -f /etc/config/chrony ] && sed s/'[[:space:]]'//g /etc/config/chrony | grep -qE '.+' && [ -f /rom/etc/config/chrony ] && sed s/'[[:space:]]'//g /rom/etc/config/chrony | grep -qE '.+' && ! [ "$(cat /etc/config/chrony)" = "$(cat /rom/etc/config/chrony)" ]; } || {
+if /etc/has-no-defaults.sh chrony; then
 
-touch /etc/config/chrony
+    touch /etc/config/chrony
 
-uci batch <<'EOF'
+    uci -q batch <<'EOF'
 delete chrony.@pool[0]
 add chrony pool
 set chrony.@pool[0]=pool
@@ -35,7 +35,10 @@ add chrony nts
 set chrony.@nts[0]=nts
 set chrony.@nts[0].rtccheck='1'
 set chrony.@nts[0].systemcerts='1'
+
+commit chrony
 EOF
-uci commit chrony
-}
+
+fi
+
 exit 0

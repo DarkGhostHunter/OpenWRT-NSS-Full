@@ -3,11 +3,11 @@
 grep -q act_mirred </etc/modules.d/70-sched-core && sed -i s/'act_mirred'/'act_nssmirred'/ /etc/modules.d/70-sched-core
 grep -q qca-nss-match </etc/modules.d/70-sched-core || echo 'qca-nss-match' >> /etc/modules.d/70-sched-core
 
-{ [ -f /etc/config/sqm ] && sed s/'[[:space:]]'//g /etc/config/sqm | grep -qE '.+' && [ -f /rom/etc/config/sqm ] && sed s/'[[:space:]]'//g /rom/etc/config/sqm | grep -qE '.+' && ! [ "$(cat /etc/config/sqm)" = "$(cat /rom/etc/config/sqm)" ]; } || {
+if /etc/has-no-defaults.sh sqm; then
 
-touch /etc/config/sqm
+    touch /etc/config/sqm
 
-uci batch <<'EOF'
+    uci -q batch <<'EOF'
 delete sqm.eth1
 delete sqm.wan
 set sqm.wan=queue
@@ -29,7 +29,10 @@ set sqm.wan.qdisc_advanced='1'
 set sqm.wan.qdisc_really_really_advanced='1'
 set sqm.wan.itarget='auto'
 set sqm.wan.etarget='auto'
+
+commit sqm
 EOF
-uci commit sqm
-}
+
+fi
+
 exit 0

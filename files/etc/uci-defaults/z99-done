@@ -33,6 +33,7 @@ fi
 /etc/init.d/dnsmasq reload
 /etc/init.d/odhcpd reload
 /etc/init.d/cron restart
+
 # Restart Unbound to apply z98-tweaks changes
 if [ -x /etc/init.d/unbound ]; then
     /etc/init.d/unbound restart

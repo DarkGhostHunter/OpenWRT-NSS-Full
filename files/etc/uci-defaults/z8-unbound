@@ -1,10 +1,10 @@
 #!/bin/sh
 
-{ [ -f /etc/config/unbound ] && sed s/'[[:space:]]'//g /etc/config/unbound | grep -qE '.+' && [ -f /rom/etc/config/unbound ] && sed s/'[[:space:]]'//g /rom/etc/config/unbound | grep -qE '.+' && ! [ "$(cat /etc/config/unbound)" = "$(cat /rom/etc/config/unbound)" ]; } || {
+if /etc/has-no-defaults.sh unbound; then
 
-touch /etc/config/unbound
+    touch /etc/config/unbound
 
-uci batch <<'EOF'
+    uci -q batch <<'EOF'
 delete unbound.ub_main
 set unbound.ub_main=unbound
 set unbound.ub_main.interface_auto='1'
@@ -86,7 +86,9 @@ set unbound.ub_main.unbound_control='1'
 set unbound.ub_main.subnetcache='0'
 delete unbound.ub_main.recursion
 
+commit unbound
 EOF
-uci commit unbound
-}
+
+fi
+
 exit 0

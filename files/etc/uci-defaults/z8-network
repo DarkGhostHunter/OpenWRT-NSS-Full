@@ -1,10 +1,10 @@
 #!/bin/sh
 
-{ [ -f /etc/config/network ] && sed s/'[[:space:]]'//g /etc/config/network | grep -qE '.+' && [ -f /rom/etc/config/network ] && sed s/'[[:space:]]'//g /rom/etc/config/network | grep -qE '.+' && ! [ "$(cat /etc/config/network)" = "$(cat /rom/etc/config/network)" ]; } || {
+if /etc/has-no-defaults.sh network; then
 
-touch /etc/config/network
+    touch /etc/config/network
 
-uci batch <<'EOF'
+    uci -q batch <<'EOF'
 delete network.loopback
 set network.loopback=interface
 set network.loopback.device='lo'
@@ -82,7 +82,10 @@ delete network.@device[1]
 add network device
 set network.@device[1]=device
 set network.@device[1].name='lan4'
+
+commit network
 EOF
-uci commit network
-}
+
+fi
+
 exit 0

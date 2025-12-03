@@ -1,38 +1,39 @@
 #!/bin/sh
 
-{ [ -f /etc/config/watchcat ] && sed s/'[[:space:]]'//g /etc/config/watchcat | grep -qE '.+' && [ -f /rom/etc/config/watchcat ] && sed s/'[[:space:]]'//g /rom/etc/config/watchcat | grep -qE '.+' && ! [ "$(cat /etc/config/watchcat)" = "$(cat /rom/etc/config/watchcat)" ]; } || {
+if /etc/has-no-defaults.sh watchcat; then
 
-touch /etc/config/watchcat
+    touch /etc/config/watchcat
 
-# Watch Google DNS and Cloudflare DNS. If these fail, we will understand there is no
-# Internet and we will only restart the wan interface instead of the whole router. 
-
-uci batch <<'EOF'
+    # Watch Google DNS and Cloudflare DNS. If these fail, we will understand there is no
+    # Internet and we will only restart the wan interface instead of the whole router.
+    # If the Internet is gone for more than two hours, we will restart the router.
+    uci -q batch <<'EOF'
 delete watchcat.@watchcat[0]
 add watchcat watchcat
 set watchcat.@watchcat[0]=watchcat
-set watchcat.@watchcat[0].mode='restart_iface'
-set watchcat.@watchcat[0].period='15m'
+set watchcat.@watchcat[0].mode='ping_reboot'
+set watchcat.@watchcat[0].period='2h'
 set watchcat.@watchcat[0].pinghosts='8.8.8.8'
 set watchcat.@watchcat[0].forcedelay='1m'
-set watchcat.@watchcat[0].addressfamily='ipv4'
-set watchcat.@watchcat[0].pingperiod='30s'
+set watchcat.@watchcat[0].addressfamily='any'
+set watchcat.@watchcat[0].pingperiod='60s'
 set watchcat.@watchcat[0].pingsize='standard'
-set watchcat.@watchcat[0].interface='@wan'
-set watchcat.@watchcat[0].mmifacename='wan'
+set watchcat.@watchcat[0].interface='wan'
+
 delete watchcat.@watchcat[1]
 add watchcat watchcat
 set watchcat.@watchcat[0]=watchcat
 set watchcat.@watchcat[0].mode='restart_iface'
 set watchcat.@watchcat[0].period='15m'
 set watchcat.@watchcat[0].pinghosts='1.1.1.1'
-set watchcat.@watchcat[0].forcedelay='1m'
 set watchcat.@watchcat[0].addressfamily='ipv4'
 set watchcat.@watchcat[0].pingperiod='30s'
 set watchcat.@watchcat[0].pingsize='standard'
-set watchcat.@watchcat[0].interface='@wan'
-set watchcat.@watchcat[0].mmifacename='wan'
+set watchcat.@watchcat[0].interface='wan'
+
+commit watchcat
 EOF
-uci commit watchcat
-}
+
+fi
+
 exit 0

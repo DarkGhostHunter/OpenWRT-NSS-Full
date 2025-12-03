@@ -53,12 +53,6 @@ fi
 
 mkdir -p /var/lock
 
-# disable bridger
-if [ -f /etc/init.d/bridger ]; then
-   /etc/init.d/bridger disable
-   /etc/init.d/bridger stop
-fi
-
 # fix btop "--utf-force" bad argument if it exist
 if [ -f /etc/profile.d/btop.sh ]; then
    sed -i 's/--utf-force/--force-utf/g' /etc/profile.d/btop.sh

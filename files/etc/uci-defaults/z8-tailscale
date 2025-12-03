@@ -1,21 +1,23 @@
 #!/bin/sh
 
-# Check if wireless config has already been modified from ROM defaults
-{ [ -f /etc/config/tailscale ] && sed s/'[[:space:]]'//g /etc/config/tailscale | grep -qE '.+' && [ -f /rom/etc/config/tailscale ] && sed s/'[[:space:]]'//g /rom/etc/config/tailscale | grep -qE '.+' && ! [ "$(cat /etc/config/tailscale)" = "$(cat /rom/etc/config/tailscale)" ]; } || {
+if /etc/has-no-defaults.sh tailscale; then
 
-touch /etc/config/tailscale
+    touch /etc/config/tailscale
 
-uci batch <<'EOF'
-# --- Radio 0 (5GHz) ---
+    uci -q batch <<'EOF'
 delete tailscale.settings
-set option log_stderr='1'
-set option log_stdout='0'
-set option port='41641'
-set option state_file='/etc/tailscale/tailscaled.state'
-set option fw_mode='nftables'
-set option enable='0'
-set option udp_gro_enable='0'
+add tailscale.settings
+set tailscale.settings.log_stderr='1'
+set tailscale.settings.log_stdout='0'
+set tailscale.settings.port='41641'
+set tailscale.settings.state_file='/etc/tailscale/tailscaled.state'
+set tailscale.settings.fw_mode='nftables'
+set tailscale.settings.enable='0'
+set tailscale.settings.udp_gro_enable='0'
+
+commit tailscale
 EOF
-uci commit wireless
-}
+
+fi
+
 exit 0

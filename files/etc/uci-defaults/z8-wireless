@@ -1,11 +1,10 @@
 #!/bin/sh
 
-# Check if wireless config has already been modified from ROM defaults
-{ [ -f /etc/config/wireless ] && sed s/'[[:space:]]'//g /etc/config/wireless | grep -qE '.+' && [ -f /rom/etc/config/wireless ] && sed s/'[[:space:]]'//g /rom/etc/config/wireless | grep -qE '.+' && ! [ "$(cat /etc/config/wireless)" = "$(cat /rom/etc/config/wireless)" ]; } || {
+if /etc/has-no-defaults.sh wireless; then
 
-touch /etc/config/wireless
+    touch /etc/config/wireless
 
-uci batch <<'EOF'
+    uci -q batch <<'EOF'
 # --- Radio 0 (5GHz) ---
 delete wireless.radio0
 set wireless.radio0=wifi-device
@@ -20,7 +19,7 @@ set wireless.radio0.cell_density='0'
 set wireless.radio0.txpower='30'
 set wireless.radio0.diversity='1'
 set wireless.radio0.disabled='0'
-# Should disable agggresive Spatial Multiplexing Power Save (SMPS) spam logs (apple devices switching to power-save)
+# Should disable aggressive Spatial Multiplexing Power Save (SMPS) spam logs (apple devices switching to power-save)
 set wireless.radio0.log_level='2'
 
 # --- Radio 1 (2.4GHz) ---
@@ -38,7 +37,7 @@ set wireless.radio1.txpower='30'
 set wireless.radio1.diversity='1'
 set wireless.radio1.disabled='0'
 set wireless.radio1.noscan='1'
-# Should disable agggresive Spatial Multiplexing Power Save (SMPS) spam logs (apple devices switching to power-save)
+# Should disable aggressive Spatial Multiplexing Power Save (SMPS) spam logs (apple devices switching to power-save)
 set wireless.radio0.log_level='2'
 
 # --- Remove Default OpenWrt Interfaces ---
@@ -95,7 +94,10 @@ set wireless.lan_radio1.reassociation_deadline='8192'
 set wireless.lan_radio1.proxy_arp='1'
 set wireless.lan_radio1.multicast_to_unicast_all='0'
 set wireless.lan_radio1.key='password'
+
+commit wireless
 EOF
-uci commit wireless
-}
+
+fi
+
 exit 0

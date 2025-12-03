@@ -1,10 +1,10 @@
 #!/bin/sh
 
-{ [ -f /etc/config/fstab ] && sed s/'[[:space:]]'//g /etc/config/fstab | grep -qE '.+' && [ -f /rom/etc/config/fstab ] && sed s/'[[:space:]]'//g /rom/etc/config/fstab | grep -qE '.+' && ! [ "$(cat /etc/config/fstab)" = "$(cat /rom/etc/config/fstab)" ]; } || {
+if /etc/has-no-defaults.sh fstab; then
 
-touch /etc/config/fstab
+    touch /etc/config/fstab
 
-uci batch <<'EOF'
+    uci -q batch <<'EOF'
 delete fstab.@global[0]
 add fstab global
 set fstab.@global[0]=global
@@ -39,7 +39,10 @@ delete fstab.@uvol[0]
 add fstab uvol
 set fstab.@uvol[0]=uvol
 set fstab.@uvol[0].initialized='1'
+
+commit fstab
 EOF
-uci commit fstab
-}
+
+fi
+
 exit 0
