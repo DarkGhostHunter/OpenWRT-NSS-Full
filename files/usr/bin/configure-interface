@@ -18,7 +18,7 @@ show_menu() {
     printf "\n"
     printf "2. Managed Switch / Dumb AP Mode\n"
     printf "   Bridges WAN to LAN. Gets IP from upstream router.\n"
-    printf "   Disables: NAT, Local DHCP, Unbound, Odhcpd.\n"
+    printf "   Disables: NAT, Local DHCP, Unbound, Odhcpd, BanIP.\n"
     printf "   Use this to extend an existing network.\n"
     printf "\n"
     printf "0. Exit\n"
@@ -125,6 +125,10 @@ set_ap_mode() {
     echo "Disabling Firewall completely..."
     /etc/init.d/firewall stop
     /etc/init.d/firewall disable
+
+    echo "Disabling BanIP completely..."
+    /etc/init.d/banip stop
+    /etc/init.d/banip disable
 
     # Flush tables and set default policy to ACCEPT (Replicating configure-firewall logic)
     if command -v nft >/dev/null; then
