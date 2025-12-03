@@ -1,8 +1,7 @@
 #!/bin/sh
 
 # Only run if the interface is 'wan' and the action is 'ifup'
-[ "$INTERFACE" = "wan" ] || exit 0
-[ "$ACTION" = "ifup" ] || exit 0
+[ "$ACTION" = "ifup" ] && [ "$INTERFACE" = "wan" ] || exit 0
 
 # Load Unbound defaults to get file paths ($UB_RKEY_FILE, $UB_ANCHOR)
 . /usr/lib/unbound/defaults.sh
