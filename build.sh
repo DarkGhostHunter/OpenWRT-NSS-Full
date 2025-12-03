@@ -557,6 +557,7 @@ add_package "f2fs-tools"
 add_package "tailscale"
 add_package "zerotier"
 add_package "kmod-br-netfilter" # Allows firewall rules to apply to traffic passing between LAN ports, VLAN
+add_package "luci-app-minidlna"
 add_package "luci-app-netdata"
 add_package "luci-app-plexmediaserver"
 add_package "luci-app-tailscale"
