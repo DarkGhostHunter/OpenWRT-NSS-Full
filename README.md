@@ -38,8 +38,8 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
 ### Build
 
 * **Unattended:** Interactive part first, build is last step.
-* **Offline:** Will work if there is no internet connection (assuming downloaded everything).
-* **TMPFS + CCACHE:** Can build on RAMS (if 60GB available). Auto-installs `ccache` for faster re-builds.
+* **Offline:** Will work if there is no internet connection after you download everything.
+* **TMPFS + CCACHE:** Can build on RAM if 60GB+ available. Auto-installs `ccache` for faster re-builds.
 
 * **Critical Build Fixes (non-negotiable)**
     * **Binutils 2.44:** Injects a specific dependency rule (`all-bfd: all-libsframe`) to prevent race conditions during parallel builds.
@@ -52,8 +52,8 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
 
 ### Caveats
 
-* **No remote packages:** You cannot download packages. It's disabled. Compile them yourself and install manually.
-* **No attended sysupgrade:** You cannot "upgrade" to newer _generic_ builds. It's disabled. Compile them yourself.
+* **No remote packages:** Do not try to install packages from the Internet. You will need to compile them yourself and install manually, or you will have _a terrible time_. 
+* **No attended sysupgrade:** You cannot "upgrade" to newer _generic_ builds. It's disabled. Compile the firmware yourself.
 
 --- 
 
@@ -76,14 +76,14 @@ git clone --depth 1 --single-branch \
 3. Execute the `build.sh` script.
 
 ```shell
-cd openwrt-build && ./build.sh
+cd openwrt-build && git pull && ./build.sh
 ```
 
-4. Grab a cup of coffee and be ready to dive into the never-ending odyssey of building a custom OpenWRT firmware for sake of _pErFoRmAnCe aNd cOnVeNiEnCe_.
+4. Grab a cup of coffee and be ready to dive into the never-ending odyssey of building a custom OpenWRT firmware for sake of _pErFoRmAnCe aNd cOnVeNiEnCe_. Firmware and packages will be at `workdir/openwrt/bin/targets/qualcommax/ipq807x/`.
 
 5. Follow OpenWRT instructions to [flash your device](https://openwrt.org/toh/dynalink/dl-wrx36), or do the usual _SysUpgrade_ from LUCI or SSH.
 
-6. Router will reboot with the freshly flashed firmware, since chances are done live with reboot need. If you want some peace of mind, you can always restart the thing manually.
+6. Router will reboot with the freshly flashed firmware. If you want some peace of mind, you can always restart so all changes are applied, but it shouldn't be necessary. 
 
 > [!NOTE]
 >
@@ -91,8 +91,8 @@ cd openwrt-build && ./build.sh
 >
 > ```shell
 > podman run -it --rm --network=host \
-docker.io/alpine:3.19 \
-/bin/sh -c "apk add --no-cache openssh-client && ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa admin@192.168.216.1"
+> docker.io/alpine:3.19 \
+> /bin/sh -c "apk add --no-cache openssh-client && ssh -o HostKeyAlgorithms=+ssh-rsa -o PubkeyAcceptedKeyTypes=+ssh-rsa admin@192.168.1.1"
 > ```
 
 ---
@@ -105,17 +105,17 @@ You will probably want to change both your WiFi SSID on both antennas into somet
 
 Usteer already has some good-for-anything defaults about minimum signal strength and offset.
 
-### 2. Configure your Interfaces
+### 2. Configure your firewall
+
+The [`configure-firewall`](files/usr/bin/configure-firewall) script disables the firewall entirely, allows OpenWRT management accessible from `wan` (outside), or restores the defaults (enabled).
+
+If your OpenWRT router sits as a Dumb AP, you will probably want to access the management from the same network, so run this script first.
+
+### 3. Configure your Interfaces
 
 The [`configure-interface`](files/usr/bin/configure-interface) script changes the router between the default Router mode, and the Managed Switch / Dumb AP without firewall.
 
-If your OpenWRT router won't be the main router, run that script first. Preferably, connect the WAN interface to your upstream router LAN ports and should be working. 
-
-### 3. Configure your firewall
-
-The [`configure-firewall`](files/usr/bin/configure-firewall) script disables the firewall entirely, allows OpenWRT management accessible from `wan` (outside), or restore the defaults.
-
-If your OpenWRT router sits as a Dumb AP, you will probably want to access the management from the same network, so run this script first. 
+If your OpenWRT router won't be the main router, run that script first. Preferably, connect the WAN interface to your upstream router LAN ports, and it should be working immediately. 
 
 ### 4. Speedtest to SQM tuning
 
