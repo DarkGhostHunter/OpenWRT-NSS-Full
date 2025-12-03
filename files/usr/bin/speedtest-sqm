@@ -13,7 +13,7 @@ log "Starting SQM Auto-Tune..."
 
 # 1. Check for Internet Connectivity
 log "Checking internet connectivity..."
-if ! ping -c 3 -W 5 1.1.1.1 >/dev/null 2>&1; then
+if ! /usr/bin/has-internet; then
     log "ERROR: No internet connection detected. Aborting."
     exit 1
 fi
