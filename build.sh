@@ -550,6 +550,8 @@ add_package "btop"
 add_package "htop"
 add_package "nano"
 add_package "banip"
+add_package "luci-app-ttyd"
+add_package "tmux" # Required for using one single process in ttyd (like btop)
 add_package "luci-app-banip"
 add_package "e2fsprogs"
 add_package "dosfstools"

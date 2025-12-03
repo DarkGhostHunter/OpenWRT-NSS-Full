@@ -24,16 +24,21 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
     * **[Tailscale](https://tailscale.com/)**: Simple custom private network. With interface and zone. Router acts as exit node. Requires [minor setup](https://openwrt.org/docs/guide-user/services/vpn/tailscale/start). [Comes with custom panel](packages/luci-app-tailscale).
     * **[Zerotier](https://www.zerotier.com/)**: Advanced private cloud. Requires [minor setup](https://openwrt.org/docs/guide-user/services/vpn/zerotier). [Comes with custom panel](packages/luci-app-zerotier).
     * **Firewall, SQM and Interface setup scripts**: One-shot shell script to [configure your router the first time](#first-boot).
+    * **DHCP Static Lease fixes:** `odhcpd` does not read your DHCP static leases. [Now](files/etc/init.d/unbound-static) [it](files/etc/uci-defaults/z70-fix-unbound-static) [does](files/usr/lib/unbound/parse_static.sh).
 
 * **Goodies**
     * **[Plex Media Server](https://plex.tv):** Great Media Server. Comes with LUCI panel. Requires external storage.
     * **[miniDLNA](https://openwrt.org/docs/guide-user/services/media_server/minidlna):** Small DLNA server for simple media sharing. Not needed if you use Plex own DLNA server.
     * **[Aria2](https://aria2.github.io/):** Powerful & simple downloader, with headers and BitTorrent. Comes with [AriaNG](https://github.com/mayswind/AriaNg).
-    * **[NetData](https://github.com/netdata/netdata):** Powerful system data visualizer. [Configured to be lean](files/etc/netdata/netdata.conf). Pinned to CPU0. Disabled by default because heavy first boot. Otherwise, use `btop` or `htop`.
+    * **[NetData](https://github.com/netdata/netdata):** Powerful system data visualizer. [Configured to be lean](files/etc/netdata/netdata.conf). Pinned to CPU0.
     * **[Watchcat](https://openwrt.org/docs/guide-user/advanced/watchcat):** Restarts the WAN interface if Internet down.
     * **[Easy SMB shares](files/etc/ksmbd/ksmbd.conf.template.example):** Robust, easy to use `ksmbd` template to mount your SSD/HDD/NVMe. Hardcoded `SMBUSER:SMBPASSWORD`.
     * **[BanIP](https://openwrt.org/docs/guide-user/services/banip):** Want to block an IP, a Country or a social network? Now you can.
-    * **DHCP Static Lease fixes:** `odhcpd` does not read your DHCP static leases. [Now](files/etc/init.d/unbound-static) [it](files/etc/uci-defaults/z70-fix-unbound-static) [does](files/usr/lib/unbound/parse_static.sh). 
+    * **[TTYD](https://tsl0922.github.io/ttyd/) + [btop](https://github.com/aristocratos/btop):** Show btop statistics at port `7682` with single unique process (great if you don't want to use netstat). 
+
+> [!NOTE]
+> 
+> All of these services are disabled by default. You can enable them in `System → Startup`, and/or their own LUCI panel.
 
 ### Build
 

@@ -18,7 +18,7 @@ show_menu() {
     printf "   Removes any temporary WAN access rules.\n"
     printf "\n"
     printf "2. Enable WAN Management Access\n"
-    printf "   Allows SSH, HTTP, HTTPS, SMB, Avahi (Bonjour) and Ping from the WAN side.\n"
+    printf "   Allows SSH, HTTP, HTTPS, SMB, Avahi (Bonjour), btop (via ttyd) and Ping from the WAN side.\n"
     printf "   Enable Plex Media Server, Aria2 (6980-6999), miniDLNA, from the WAN side.\n"
     printf "   Useful for upstream management, client discovery.\n"
     printf "\n"
@@ -76,6 +76,16 @@ allow_wan_management() {
     uci set firewall.allow_ssh_wan.enabled='1'
     uci -q delete firewall.allow_ssh_wan.proto
     uci add_list firewall.allow_ssh_wan.proto='tcp'
+
+    # 2. Allow btop via ttyd
+    uci set firewall.allow_ttyd_btop_wan=rule
+    uci set firewall.allow_ttyd_btop_wan.name='Allow-Ttyd-Btop'
+    uci set firewall.allow_ttyd_btop_wan.src='wan'
+    uci set firewall.allow_ttyd_btop_wan.dest_port='7682'
+    uci set firewall.allow_ttyd_btop_wan.target='ACCEPT'
+    uci set firewall.allow_ttyd_btop_wan.enabled='1'
+    uci -q delete firewall.allow_ttyd_btop_wan.proto
+    uci add_list firewall.allow_ttyd_btop_wan.proto='tcp'
 
     # 3. Allow HTTP
     uci set firewall.allow_management_http_wan=rule

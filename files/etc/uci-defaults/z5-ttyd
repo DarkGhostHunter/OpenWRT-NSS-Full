@@ -1,0 +1,23 @@
+#!/bin/sh
+
+if /etc/has-no-defaults.sh ttyd; then
+
+    touch /etc/config/ttyd
+
+    uci -q batch <<'EOF'
+delete ttyd.ttyd
+delete ttyd.btop_server
+
+add ttyd.btop_server
+set ttyd.btop_server.enabled='0'
+set ttyd.btop_server.command='tmux -2 new-session -A -s ttyd_system_stats /usr/bin/btop'
+set ttyd.btop_server.port='7682'
+set ttyd.btop_server.interface='lan'
+set ttyd.btop_server.client_option='title=System Stats'
+
+commit ttyd
+EOF
+
+fi
+
+exit 0
