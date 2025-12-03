@@ -12,7 +12,7 @@ set aria2.main.group='SMBUSER'
 set aria2.main.dir='/mnt/sda1/downloads'
 set aria2.main.config_dir='/mnt/sda1/downloads/.aria2'
 
-commit adblock
+commit aria2
 EOF
 
 fi
