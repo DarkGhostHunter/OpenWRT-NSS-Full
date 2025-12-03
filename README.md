@@ -19,7 +19,7 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
 * **Networking**
     * **`10.0.0.0`:** Home Network. With `odhcpd` for superior IPv6 management, `unbound` for secure private/secure DNS handling.
     * **`192.168.0.0`:** IoT Network. No router access, only Internet. Isolated. Home Network can reach it, not viceversa.
-    * **LAN4 for IoT:** For IoT Hubs (Nest, Hue Bridge, HomePod, Alexa, etc.). Connected to IoT network. Can be _restored_ to normal LAN.
+    * **`LAN4` for IoT:** For IoT Hubs (Nest, Hue Bridge, HomePod, Alexa, etc.). Connected to IoT network. Can be _restored_ to normal LAN if you want (disable this interface and add it to the `lan` interface).
     * **[Adblock](https://github.com/openwrt/packages/blob/master/net/adblock/files/README.md)**: Because.
     * **[Tailscale](https://tailscale.com/)**: Simple custom private network. With interface and zone. Router acts as exit node. Requires [minor setup](https://openwrt.org/docs/guide-user/services/vpn/tailscale/start). [Comes with custom panel](packages/luci-app-tailscale).
     * **[Zerotier](https://www.zerotier.com/)**: Advanced private cloud. Requires [minor setup](https://openwrt.org/docs/guide-user/services/vpn/zerotier). [Comes with custom panel](packages/luci-app-zerotier).
