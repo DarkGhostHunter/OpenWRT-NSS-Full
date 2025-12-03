@@ -157,7 +157,7 @@ allow_wan_management() {
     uci add_list firewall.allow_ariang_bittorrent_wan.proto='tcp'
     uci add_list firewall.allow_ariang_bittorrent_wan.proto='udp'
 
-    # 5. Allow AriaNG
+    # 5. Allow MiniDLNA, discovery ports
     uci set firewall.allow_minidlna_wan=rule
     uci set firewall.allow_minidlna_wan.name='Allow-MiniDLNA-WAN'
     uci set firewall.allow_minidlna_wan.src='wan'
