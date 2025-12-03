@@ -4,9 +4,9 @@ This script builds OpenWRT from scratch for Dynalink DL-WRX36, with Network SubS
 
 It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds), but uses the up-to-date [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openwrt). It was created mashing up a lot of AI like Claude, Grok, Gemini, Copilot and Mistral, a lot of trial-and-error, and credits. Lot of credits.
 
-> [!DANGER]
+> [!WARNING]
 >
-> This build does **NOT** save your device default configuration. Save it _before_, or if you're updating from a very old version, and apply manually, to avoid risk of misconfiguration and being locked out. **You'be been warned**.
+> This build does **will try** to save your device default configuration, but anyway, save it _before_ you flash. Some services will be disabled to avoid misconfiguration
 
 ## Highlights:
 
