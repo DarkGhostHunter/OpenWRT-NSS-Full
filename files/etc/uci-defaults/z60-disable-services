@@ -13,6 +13,7 @@ tailscale
 ddns
 banip
 sysntpd
+minidlna
 "
 
 for service in $SERVICES; do
