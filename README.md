@@ -29,7 +29,7 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
     * **[Plex Media Server](https://plex.tv):** Great Media Server. Comes with LUCI panel. Requires external storage.
     * **[miniDLNA](https://openwrt.org/docs/guide-user/services/media_server/minidlna):** Small DLNA server for simple media sharing. Not needed if you use Plex own DLNA server.
     * **[Aria2](https://aria2.github.io/):** Powerful & simple downloader, with headers and BitTorrent. Comes with [AriaNG](https://github.com/mayswind/AriaNg).
-    * **[NetData](https://github.com/netdata/netdata):** Powerful, system data visualizer. [Configured to be lean](files/etc/netdata/netdata.conf). Pinned to CPU0. Disabled by default because heavy first boot.
+    * **[NetData](https://github.com/netdata/netdata):** Powerful system data visualizer. [Configured to be lean](files/etc/netdata/netdata.conf). Pinned to CPU0. Disabled by default because heavy first boot. Otherwise, use `btop` or `htop`.
     * **[Watchcat](https://openwrt.org/docs/guide-user/advanced/watchcat):** Restarts the WAN interface if Internet down.
     * **[Easy SMB shares](files/etc/ksmbd/ksmbd.conf.template.example):** Robust, easy to use `ksmbd` template to mount your SSD/HDD/NVMe. Hardcoded `SMBUSER:SMBPASSWORD`.
     * **[BanIP](https://openwrt.org/docs/guide-user/services/banip):** Want to block an IP, a Country or a social network? Now you can.
