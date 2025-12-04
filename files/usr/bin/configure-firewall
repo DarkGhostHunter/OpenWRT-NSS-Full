@@ -36,10 +36,18 @@ set_defaults() {
     /etc/init.d/firewall enable
 
     # remove custom management rules if they exist
-    uci -q delete firewall.allow_ping_wan
     uci -q delete firewall.allow_ssh_wan
-    uci -q delete firewall.allow_http_wan
-    uci -q delete firewall.allow_https_wan
+    uci -q delete firewall.allow_ttyd_btop_wan
+    uci -q delete firewall.allow_management_http_wan
+    uci -q delete firewall.allow_management_https_wan
+    uci -q delete firewall.allow_avahi_wan
+    uci -q delete firewall.allow_smb_wan
+    uci -q delete firewall.allow_plex_http_wan
+    uci -q delete firewall.allow_plex_discovery_wan
+    uci -q delete firewall.allow_ariang_wan
+    uci -q delete firewall.allow_ariang_bittorrent_wan
+    uci -q delete firewall.allow_minidlna_wan
+    uci -q delete firewall.allow_minidlna_discovery_wan
 
     # Enforce defaults found in z98-firewall
     uci batch <<'EOF'
