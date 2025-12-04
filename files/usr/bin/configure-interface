@@ -80,7 +80,7 @@ set_ap_mode() {
     printf "  1. Bridge WAN port to LAN (br-lan).\n"
     printf "  2. Disable WAN routing.\n"
     printf "  3. Set LAN to DHCP Client (gets IP from upstream).\n"
-    printf "  4. Disable local DHCP server, DNS (Unbound), and Odhcpd.\n"
+    printf "  4. Disable local DHCP server, DNS (Unbound), odhcpd and BanIP.\n"
     printf "  5. Disable Firewall completely (sets policies to ACCEPT).\n"
     printf "  6. Disable Watchcat.\n"
     printf "%bWARNING: You will lose connection immediately!%b\n" "${RED}" "${NC}"
@@ -122,22 +122,24 @@ set_ap_mode() {
     /etc/init.d/odhcpd stop
     /etc/init.d/odhcpd disable
 
-    echo "Disabling Firewall completely..."
-    /etc/init.d/firewall stop
-    /etc/init.d/firewall disable
-
     echo "Disabling BanIP completely..."
     /etc/init.d/banip stop
     /etc/init.d/banip disable
 
+    echo "Disabling Firewall completely..."
+    /etc/init.d/firewall stop
+    /etc/init.d/firewall disable
+
     # Flush tables and set default policy to ACCEPT (Replicating configure-firewall logic)
     if command -v nft >/dev/null; then
+        echo "Flushing firewall tables (nft)..."
         nft flush ruleset
         nft add table inet filter
         nft add chain inet filter input "{ type filter hook input priority 0 ; policy accept ; }"
         nft add chain inet filter forward "{ type filter hook forward priority 0 ; policy accept ; }"
         nft add chain inet filter output "{ type filter hook output priority 0 ; policy accept ; }"
     else
+        echo "Flushing firewall tables (iptables)..."
         iptables -P INPUT ACCEPT
         iptables -P OUTPUT ACCEPT
         iptables -P FORWARD ACCEPT
