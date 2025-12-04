@@ -13,16 +13,11 @@ set usteer.@usteer[0].syslog='1'
 set usteer.@usteer[0].local_mode='1'
 set usteer.@usteer[0].ipv6='0'
 set usteer.@usteer[0].debug_level='2'
-set usteer.@usteer[0].band_steering_threshold='1'
-set usteer.@usteer[0].band_steering_interval='30000'
-set usteer.@usteer[0].link_measurement_interval='30000'
-set usteer.@usteer[0].ssid_list='OpenWrt_WiFi'
-set usteer.@usteer[0].band_steering_min_snr='0'
-
-# Add sensible defaults for steering thresholds.
-set usteer.@usteer[0].band_steering_min_snr='-60'
 set usteer.@usteer[0].band_steering_threshold='5'
+set usteer.@usteer[0].band_steering_interval='30000'
 set usteer.@usteer[0].band_steering_interval='120000'
+set usteer.@usteer[0].ssid_list='OpenWrt_WiFi'
+set usteer.@usteer[0].band_steering_min_snr='-60'
 
 commit usteer
 EOF
