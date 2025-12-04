@@ -1,0 +1,134 @@
+#!/bin/sh
+
+  uci -q batch <<'EOF'
+### Here onwards are selective rules to open ports to the WAN side (outside)
+
+# 1. Allow SSH
+set firewall.allow_ssh_wan=rule
+set firewall.allow_ssh_wan.name='Allow-SSH-WAN'
+set firewall.allow_ssh_wan.src='wan'
+set firewall.allow_ssh_wan.dest_port='22'
+set firewall.allow_ssh_wan.target='ACCEPT'
+set firewall.allow_ssh_wan.enabled='0'
+uci -q delete firewall.allow_ssh_wan.proto
+uci add_list firewall.allow_ssh_wan.proto='tcp'
+
+# 2. Allow ttyd and btop via ttyd
+set firewall.allow_ttyd_management_wan=rule
+set firewall.allow_ttyd_management_wan.name='Allow-Ttyd-Management-WAN'
+set firewall.allow_ttyd_management_wan.src='wan'
+set firewall.allow_ttyd_management_wan.dest_port='7681'
+set firewall.allow_ttyd_management_wan.target='ACCEPT'
+set firewall.allow_ttyd_management_wan.enabled='0'
+uci add_list firewall.allow_ttyd_management_wan.proto='tcp'
+
+set firewall.allow_ttyd_btop_wan=rule
+set firewall.allow_ttyd_btop_wan.name='Allow-Ttyd-Btop-WAN'
+set firewall.allow_ttyd_btop_wan.src='wan'
+set firewall.allow_ttyd_btop_wan.dest_port='7682'
+set firewall.allow_ttyd_btop_wan.target='ACCEPT'
+set firewall.allow_ttyd_btop_wan.enabled='0'
+uci add_list firewall.allow_ttyd_btop_wan.proto='tcp'
+
+# 3. Allow HTTP and HTTPS Management access
+set firewall.allow_http_management_wan=rule
+set firewall.allow_http_management_wan.name='Allow-HTTP-Management-WAN'
+set firewall.allow_http_management_wan.src='wan'
+set firewall.allow_http_management_wan.dest_port='80'
+set firewall.allow_http_management_wan.target='ACCEPT'
+set firewall.allow_http_management_wan.enabled='0'
+uci -q delete firewall.allow_http_management_wan.proto
+uci add_list firewall.allow_http_management_wan.proto='tcp'
+
+set firewall.allow_https_management_wan=rule
+set firewall.allow_https_management_wan.name='Allow-HTTPS-Management-WAN'
+set firewall.allow_https_management_wan.src='wan'
+set firewall.allow_https_management_wan.dest_port='443'
+set firewall.allow_https_management_wan.target='ACCEPT'
+set firewall.allow_https_management_wan.enabled='0'
+uci -q delete firewall.allow_https_management_wan.proto
+uci add_list firewall.allow_https_management_wan.proto='tcp'
+
+# 4. Allow Avahi (Bonjour)
+set firewall.allow_avahi_wan=rule
+set firewall.allow_avahi_wan.name='Allow-Avahi-WAN'
+set firewall.allow_avahi_wan.src='wan'
+set firewall.allow_avahi_wan.dest_port='5353'
+set firewall.allow_avahi_wan.target='ACCEPT'
+set firewall.allow_avahi_wan.enabled='0'
+uci -q delete firewall.allow_avahi_wan.proto
+uci add_list firewall.allow_avahi_wan.proto='udp'
+
+# 5. Allow SMB
+set firewall.allow_smb_wan=rule
+set firewall.allow_smb_wan.name='Allow-SMB-WAN'
+set firewall.allow_smb_wan.src='wan'
+set firewall.allow_smb_wan.dest_port='445'
+set firewall.allow_smb_wan.target='ACCEPT'
+set firewall.allow_smb_wan.enabled='0'
+uci -q delete firewall.allow_smb_wan.proto
+uci add_list firewall.allow_smb_wan.proto='tcp'
+
+# 6. Allow Plex Media Server, discovery ports
+set firewall.allow_plex_http_wan=rule
+set firewall.allow_plex_http_wan.name='Allow-Plex-HTTP-WAN'
+set firewall.allow_plex_http_wan.src='wan'
+set firewall.allow_plex_http_wan.dest_port='32400'
+set firewall.allow_plex_http_wan.target='ACCEPT'
+set firewall.allow_plex_http_wan.enabled='0'
+uci -q delete firewall.allow_plex_http_wan.proto
+uci add_list firewall.allow_plex_http_wan.proto='tcp'
+
+set firewall.allow_plex_discovery_wan=rule
+set firewall.allow_plex_discovery_wan.name='Allow-Plex-Discovery-WAN'
+set firewall.allow_plex_discovery_wan.src='wan'
+set firewall.allow_plex_discovery_wan.dest_port='32410 32412 32413 32414'
+set firewall.allow_plex_discovery_wan.target='ACCEPT'
+set firewall.allow_plex_discovery_wan.enabled='0'
+uci -q delete firewall.allow_plex_discovery_wan.proto
+uci add_list firewall.allow_plex_discovery_wan.proto='udp'
+
+# 7. Allow AriaNG
+set firewall.allow_ariang_wan=rule
+set firewall.allow_ariang_wan.name='Allow-AriaNG-WAN'
+set firewall.allow_ariang_wan.src='wan'
+set firewall.allow_ariang_wan.dest_port='6800'
+set firewall.allow_ariang_wan.target='ACCEPT'
+set firewall.allow_ariang_wan.enabled='0'
+uci -q delete firewall.allow_ariang_wan.proto
+uci add_list firewall.allow_ariang_wan.proto='tcp'
+uci add_list firewall.allow_ariang_wan.proto='udp'
+
+set firewall.allow_ariang_bittorrent_wan=rule
+set firewall.allow_ariang_bittorrent_wan.name='Allow-AriaNG-BitTorrent-WAN'
+set firewall.allow_ariang_bittorrent_wan.src='wan'
+set firewall.allow_ariang_bittorrent_wan.dest_port='6881-6999'
+set firewall.allow_ariang_bittorrent_wan.target='ACCEPT'
+set firewall.allow_ariang_bittorrent_wan.enabled='0'
+uci -q delete firewall.allow_ariang_bittorrent_wan.proto
+uci add_list firewall.allow_ariang_bittorrent_wan.proto='tcp'
+uci add_list firewall.allow_ariang_bittorrent_wan.proto='udp'
+
+# 8. Allow MiniDLNA, discovery ports
+set firewall.allow_minidlna_wan=rule
+set firewall.allow_minidlna_wan.name='Allow-MiniDLNA-WAN'
+set firewall.allow_minidlna_wan.src='wan'
+set firewall.allow_minidlna_wan.dest_port='8200'
+set firewall.allow_minidlna_wan.target='ACCEPT'
+set firewall.allow_minidlna_wan.enabled='0'
+uci -q delete firewall.allow_minidlna_wan.proto
+uci add_list firewall.allow_minidlna_wan.proto='tcp'
+
+set firewall.allow_minidlna_discovery_wan=rule
+set firewall.allow_minidlna_discovery_wan.name='Allow-MiniDLNA-Discovery-WAN'
+set firewall.allow_minidlna_discovery_wan.src='wan'
+set firewall.allow_minidlna_discovery_wan.dest_port='1900'
+set firewall.allow_minidlna_discovery_wan.target='ACCEPT'
+set firewall.allow_minidlna_discovery_wan.enabled='0'
+uci -q delete firewall.allow_minidlna_discovery_wan.proto
+uci add_list firewall.allow_minidlna_discovery_wan.proto='udp'
+
+commit firewall
+EOF
+
+exit 0
