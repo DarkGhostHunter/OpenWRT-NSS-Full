@@ -20,24 +20,24 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
     * **`10.0.0.0`:** Home Network. With `odhcpd` for superior IPv6 management, `unbound` for secure private/secure DNS handling.
     * **`192.168.0.0`:** IoT Network. No router access, only Internet. Isolated. Home Network can reach it, not viceversa.
     * **`LAN4` for IoT:** For IoT Hubs (Nest, Hue Bridge, HomePod, Alexa, etc.). Connected to IoT network. Can be _restored_ to normal LAN if you want (disable this interface and add it to the `lan` interface).
-    * **[Adblock](https://github.com/openwrt/packages/blob/master/net/adblock/files/README.md)**: Because.
+    * **[Adblock](https://github.com/openwrt/packages/blob/master/net/adblock/files/README.md)**: Because. With `unbound`, you can 
     * **[Tailscale](https://tailscale.com/)**: Simple custom private network. With interface and zone. Router acts as exit node. Requires [minor setup](https://openwrt.org/docs/guide-user/services/vpn/tailscale/start). [Comes with custom panel](packages/luci-app-tailscale).
     * **[Zerotier](https://www.zerotier.com/)**: Advanced private cloud. Requires [minor setup](https://openwrt.org/docs/guide-user/services/vpn/zerotier). [Comes with custom panel](packages/luci-app-zerotier).
     * **Firewall, SQM and Interface setup scripts**: One-shot shell script to [configure your router the first time](#first-boot).
 
 * **Goodies**
     * **[Plex Media Server](https://plex.tv):** Great Media Server. Comes with LUCI panel. Requires external storage.
-    * **[miniDLNA](https://openwrt.org/docs/guide-user/services/media_server/minidlna):** Small DLNA server for simple media sharing. Not needed if you use Plex own DLNA server.
-    * **[Aria2](https://aria2.github.io/):** Powerful & simple downloader, with headers and BitTorrent. Comes with [AriaNG](https://github.com/mayswind/AriaNg).
+    * **[miniDLNA](https://openwrt.org/docs/guide-user/services/media_server/minidlna):** Small DLNA server for simple media sharing. Not needed if you use Plex own DLNA server. Requires external storage.
+    * **[Aria2](https://aria2.github.io/):** Powerful & simple downloader, with headers and BitTorrent. Comes with [AriaNG](https://github.com/mayswind/AriaNg). Requires external storage.
     * **[NetData](https://github.com/netdata/netdata):** Powerful system data visualizer. [Configured to be lean](files/etc/netdata/netdata.conf). Pinned to CPU0.
-    * **[Watchcat](https://openwrt.org/docs/guide-user/advanced/watchcat):** Restarts the WAN interface if Internet down.
+    * **[Watchcat](https://openwrt.org/docs/guide-user/advanced/watchcat):** Restarts the WAN interface if Internet down (because some ISP Routers are dumb).
     * **[Easy SMB shares](files/etc/ksmbd/ksmbd.conf.template.example):** Robust, easy to use `ksmbd` template to mount your SSD/HDD/NVMe. Hardcoded `SMBUSER:SMBPASSWORD`.
     * **[BanIP](https://openwrt.org/docs/guide-user/services/banip):** Want to block an IP, a Country or a social network? Now you can.
-    * **[TTYD](https://tsl0922.github.io/ttyd/) + [btop](https://github.com/aristocratos/btop):** Show btop statistics at port `7682` with single unique process (great if you don't want to use netstat). 
+    * **[TTYD](https://tsl0922.github.io/ttyd/) + [btop](https://github.com/aristocratos/btop):** Show btop statistics at port `7682` with single unique process (great if you don't want to use netstat) with zero permissions (`nobody:nogroup`). 
 
 > [!NOTE]
 > 
-> All of these services are disabled by default. You can enable them in `System → Startup`, and/or their own LUCI panel.
+> All of these services are disabled by default, except for TTYD's btop at port `7682`. You can enable them in `System → Startup`, and/or their own LUCI panel.
 
 ### Build
 

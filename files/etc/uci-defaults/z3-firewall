@@ -60,24 +60,22 @@ set firewall.@zone[2].mtu_fix='1'
 
 delete firewall.adblock_IoT53
 set firewall.adblock_IoT53=redirect
-set firewall.adblock_IoT53.name='Adblock DNS (IoT, 53)'
+set firewall.adblock_IoT53.name='Force-Adblock-Iot'
 set firewall.adblock_IoT53.src='IoT'
 set firewall.adblock_IoT53.proto='tcp udp'
 set firewall.adblock_IoT53.src_dport='53'
 set firewall.adblock_IoT53.dest_port='53'
 set firewall.adblock_IoT53.target='DNAT'
-set firewall.adblock_IoT53.family='any'
 set firewall.adblock_IoT53.enabled='0'
 
 delete firewall.adblock_lan53
 set firewall.adblock_lan53=redirect
-set firewall.adblock_lan53.name='Adblock DNS (lan, 53)'
+set firewall.adblock_lan53.name='Force-Adblock-Lan'
 set firewall.adblock_lan53.src='lan'
 set firewall.adblock_lan53.proto='tcp udp'
 set firewall.adblock_lan53.src_dport='53'
 set firewall.adblock_lan53.dest_port='53'
 set firewall.adblock_lan53.target='DNAT'
-set firewall.adblock_lan53.family='any'
 set firewall.adblock_lan53.enabled='0'
 
 delete firewall.@forwarding[2]
