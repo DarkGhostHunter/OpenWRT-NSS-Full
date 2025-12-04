@@ -1576,18 +1576,6 @@ resolv_setup() {
   fi
 }
 
-bundle_dhcp_hosts() {
-  local cfg="$1"
-  local dhcp_name dhcp_ip
-  config_get dhcp_name "$cfg" name
-  config_get dhcp_ip "$cfg" ip
-
-  if [ -n "$dhcp_name" ] && [ -n "$dhcp_ip" ] ; then
-    echo "local-data: \"$dhcp_name.$UB_TXT_DOMAIN A $dhcp_ip\"" >> "$UB_HOST_CONF"
-    echo "local-data-ptr: \"$dhcp_ip $dhcp_name.$UB_TXT_DOMAIN\"" >> "$UB_HOST_CONF"
-  fi
-}
-
 ##############################################################################
 
 unbound_start() {

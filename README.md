@@ -24,7 +24,6 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
     * **[Tailscale](https://tailscale.com/)**: Simple custom private network. With interface and zone. Router acts as exit node. Requires [minor setup](https://openwrt.org/docs/guide-user/services/vpn/tailscale/start). [Comes with custom panel](packages/luci-app-tailscale).
     * **[Zerotier](https://www.zerotier.com/)**: Advanced private cloud. Requires [minor setup](https://openwrt.org/docs/guide-user/services/vpn/zerotier). [Comes with custom panel](packages/luci-app-zerotier).
     * **Firewall, SQM and Interface setup scripts**: One-shot shell script to [configure your router the first time](#first-boot).
-    * **DHCP Static Lease fixes:** `odhcpd` does not read your DHCP static leases. [Now](files/etc/init.d/unbound-static) [it](files/etc/uci-defaults/z70-fix-unbound-static) [does](files/usr/lib/unbound/parse_static.sh).
 
 * **Goodies**
     * **[Plex Media Server](https://plex.tv):** Great Media Server. Comes with LUCI panel. Requires external storage.
