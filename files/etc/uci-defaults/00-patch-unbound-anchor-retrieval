@@ -1,0 +1,16 @@
+#!/bin/sh
+
+# This will comment the lines that makes unbound retrieve an anchor key since
+# that is handled automatically when there is internet.
+sed -i \
+  -e 's/^\([[:space:]]*\)elif
+
+\[ -x \$UB_ANCHOR \]
+
+ ; then/\1# elif [ -x $UB_ANCHOR ] ; then/' \
+  -e 's/^\([[:space:]]*\)\$UB_ANCHOR -a \$UB_RKEY_FILE/\1# $UB_ANCHOR -a $UB_RKEY_FILE/' \
+  '/usr/lib/unbound/unbound.sh'
+
+echo "Commented lines written to $OUTPUT"
+
+exit 0
