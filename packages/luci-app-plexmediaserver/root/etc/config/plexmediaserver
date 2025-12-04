@@ -1,6 +1,6 @@
 
 config plexmediaserver 'main'
-	option enabled '1'
+	option enabled '0'
 	option browser_root '/mnt/sda1/Media'
 	option library_dir '/mnt/sda1/Media/.plex/Library'
 	option application_support_dir '/mnt/sda1/Media/.plex/Library/Application Support'
