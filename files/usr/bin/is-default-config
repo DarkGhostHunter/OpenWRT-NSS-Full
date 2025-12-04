@@ -1,37 +1,49 @@
 #!/bin/sh
 
-# SCRIPT PURPOSE:
-# Returns 0 (True)  -> File is missing, empty, or identical to ROM (Safe to overwrite).
-# Returns 1 (False) -> File exists and differs from ROM (User modified, do NOT overwrite).
-
 PKG_NAME="$1"
 
 # Validation: Check if argument is provided.
-# Using ${VAR:?message} prints message to Stderr and exits if empty (standard ash feature).
 : "${PKG_NAME:?Usage: $0 <config_name>}"
 
 CONFIG="/etc/config/$PKG_NAME"
 ROM_CONFIG="/rom/etc/config/$PKG_NAME"
 
-# Check 0: If the ROM file does not exist, then a default was added manually.
-# We consider this "default" (safe to overwrite/install)
-if [ ! -s "$ROM_CONFIG" ]; then
-    exit 0
-fi
-
-# Check 1: If the active config does not exist or is empty (size 0)
-# We consider this "second default" (safe to overwrite/install)
+# 1. Immediate Check: If active config is missing or empty,
+# it effectively needs to be "restored/updated".
 if [ ! -s "$CONFIG" ]; then
     exit 0
 fi
 
-# Check 2: If the active config exists...
-# We check if a ROM backup exists AND if the files are bit-wise identical.
-# 'cmp -s' returns 0 if identical, 1 if different.
-if [ -f "$ROM_CONFIG" ] && cmp -s "$CONFIG" "$ROM_CONFIG"; then
-    exit 0
+# 2. Check if ROM config exists to compare against.
+# If ROM version doesn't exist, the user created this file manually.
+# Therefore, it is NOT default (Exit 1).
+if [ ! -f "$ROM_CONFIG" ]; then
+    exit 1
 fi
 
-# Fallback: The file exists, is not empty, and differs from ROM (or ROM doesn't exist).
-# We consider this "customized" (do NOT overwrite).
-exit 1
+# FUNCTION: Normalization Pipeline
+# 1. sed 's/#.*//'        -> Removes comments (content after #)
+# 2. sed 's/^[ \t]*//'    -> Removes leading whitespace/tabs
+# 3. sed 's/[ \t]*$//'    -> Removes trailing whitespace/tabs
+# 4. sed '/^$/d'          -> Removes empty lines (leftover from prev steps)
+# 5. sort                 -> Sorts alphabetically
+# 6. md5sum               -> Hashes the result
+# 7. awk '{print $1}'     -> Returns only the hash string
+calc_checksum() {
+    sed 's/#.*//' "$1" | \
+    sed -e 's/^[ \t]*//' -e 's/[ \t]*$//' | \
+    sed '/^$/d' | \
+    sort | \
+    md5sum | awk '{print $1}'
+}
+
+# Calculate hashes for both files
+SUM_ACTIVE=$(calc_checksum "$CONFIG")
+SUM_ROM=$(calc_checksum "$ROM_CONFIG")
+
+# Compare Hashes
+if [ "$SUM_ACTIVE" = "$SUM_ROM" ]; then
+    exit 0 # Hashes match: File is semantically "Default"
+else
+    exit 1 # Hashes differ: File is "Customized"
+fi
