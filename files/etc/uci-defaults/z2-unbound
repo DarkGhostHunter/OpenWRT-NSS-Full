@@ -12,7 +12,8 @@ set unbound.ub_main.hide_binddata='1'
 set unbound.ub_main.listen_port='53'
 set unbound.ub_main.extended_luci='1'
 set unbound.ub_main.localservice='1'
-set unbound.ub_main.add_extra_dns='0'
+# Add the extra hosts in the `/etc/config/dhcp` file.
+set unbound.ub_main.add_extra_dns='4'
 set unbound.ub_main.num_threads='1'
 set unbound.ub_main.rate_limit='0'
 set unbound.ub_main.rebind_protection='1'
@@ -38,6 +39,9 @@ set unbound.ub_main.add_local_fqdn='4'
 set unbound.ub_main.add_wan_fqdn='0'
 set unbound.ub_main.dhcp4_slaac6='1'
 set unbound.ub_main.subnetcache='0'
+# Do not create DNS records for hosts with Public IPv6 Addresses, preventing stale DNS
+# records when the prefix is dynamic by the router.
+set unbound.ub_main.exclude_ipv6_ga='1'
 
 add_list unbound.ub_main.trigger_interface='lan'
 add_list unbound.ub_main.trigger_interface='IoT'
