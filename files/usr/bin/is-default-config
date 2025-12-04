@@ -13,8 +13,14 @@ PKG_NAME="$1"
 CONFIG="/etc/config/$PKG_NAME"
 ROM_CONFIG="/rom/etc/config/$PKG_NAME"
 
-# Check 1: If the active config does not exist or is empty (size 0)
+# Check 0: If the ROM file does not exist, then a default was added manually.
 # We consider this "default" (safe to overwrite/install)
+if [ ! -s "$ROM_CONFIG" ]; then
+    exit 0
+fi
+
+# Check 1: If the active config does not exist or is empty (size 0)
+# We consider this "second default" (safe to overwrite/install)
 if [ ! -s "$CONFIG" ]; then
     exit 0
 fi
