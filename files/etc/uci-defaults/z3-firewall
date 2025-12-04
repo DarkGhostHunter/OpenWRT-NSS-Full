@@ -58,25 +58,27 @@ set firewall.@zone[2].forward='REJECT'
 set firewall.@zone[2].masq='1'
 set firewall.@zone[2].mtu_fix='1'
 
-delete firewall.adblock_IoT53
-set firewall.adblock_IoT53=redirect
-set firewall.adblock_IoT53.name='Force-Adblock-Iot'
-set firewall.adblock_IoT53.src='IoT'
-set firewall.adblock_IoT53.proto='tcp udp'
-set firewall.adblock_IoT53.src_dport='53'
-set firewall.adblock_IoT53.dest_port='53'
-set firewall.adblock_IoT53.target='DNAT'
-set firewall.adblock_IoT53.enabled='0'
+delete firewall.force_adblock_iot
+set firewall.force_adblock_iot=redirect
+set firewall.force_adblock_iot.name='Force-Adblock-Iot'
+set firewall.force_adblock_iot.src='IoT'
+add_list firewall.force_adblock_iot.proto='tcp'
+add_list firewall.force_adblock_iot.proto='udp'
+set firewall.force_adblock_iot.src_dport='53'
+set firewall.force_adblock_iot.dest_port='53'
+set firewall.force_adblock_iot.target='DNAT'
+set firewall.force_adblock_iot.enabled='0'
 
-delete firewall.adblock_lan53
-set firewall.adblock_lan53=redirect
-set firewall.adblock_lan53.name='Force-Adblock-Lan'
-set firewall.adblock_lan53.src='lan'
-set firewall.adblock_lan53.proto='tcp udp'
-set firewall.adblock_lan53.src_dport='53'
-set firewall.adblock_lan53.dest_port='53'
-set firewall.adblock_lan53.target='DNAT'
-set firewall.adblock_lan53.enabled='0'
+delete firewall.force_adblock_lan
+set firewall.force_adblock_lan=redirect
+set firewall.force_adblock_lan.name='Force-Adblock-Lan'
+set firewall.force_adblock_lan.src='lan'
+add_list firewall.force_adblock_lan.proto='tcp'
+add_list firewall.force_adblock_lan.proto='udp'
+set firewall.force_adblock_lan.src_dport='53'
+set firewall.force_adblock_lan.dest_port='53'
+set firewall.force_adblock_lan.target='DNAT'
+set firewall.force_adblock_lan.enabled='0'
 
 delete firewall.@forwarding[2]
 add firewall forwarding
