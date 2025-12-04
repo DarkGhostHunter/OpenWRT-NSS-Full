@@ -1,10 +1,7 @@
 #!/bin/sh
 
-if /usr/bin/is-default-config system; then
-
-    touch /etc/config/system
-
-    uci -q batch <<'EOF'
+# System ROM does not exist, so we will just set the configuration
+uci -q batch <<'EOF'
 delete system.@system[0]
 add system system
 set system.@system[0]=system
@@ -31,7 +28,5 @@ set system.@rngd[0].device='/dev/urandom'
 
 commit system
 EOF
-
-fi
 
 exit 0
