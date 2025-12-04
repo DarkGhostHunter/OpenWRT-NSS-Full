@@ -1,6 +1,10 @@
 #!/bin/sh
 
-  uci -q batch <<'EOF'
+if /etc/has-no-defaults.sh firewall; then
+
+    touch /etc/config/firewall
+
+    uci -q batch <<'EOF'
 ### Here onwards are selective rules to open ports to the WAN side (outside)
 
 # 1. Allow SSH
@@ -130,5 +134,7 @@ uci add_list firewall.allow_minidlna_discovery_wan.proto='udp'
 
 commit firewall
 EOF
+
+fi
 
 exit 0
