@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh umdns; then
+if /usr/bin/is-default-config umdns; then
 
     touch /etc/config/umdns
 

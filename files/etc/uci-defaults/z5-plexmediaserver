@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh plexmediaserver; then
+if /usr/bin/is-default-config plexmediaserver; then
 
     touch /etc/config/plexmediaserver
 

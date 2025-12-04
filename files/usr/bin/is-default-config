@@ -1,0 +1,31 @@
+#!/bin/sh
+
+# SCRIPT PURPOSE:
+# Returns 0 (True)  -> File is missing, empty, or identical to ROM (Safe to overwrite).
+# Returns 1 (False) -> File exists and differs from ROM (User modified, do NOT overwrite).
+
+PKG_NAME="$1"
+
+# Validation: Check if argument is provided.
+# Using ${VAR:?message} prints message to Stderr and exits if empty (standard ash feature).
+: "${PKG_NAME:?Usage: $0 <config_name>}"
+
+CONFIG="/etc/config/$PKG_NAME"
+ROM_CONFIG="/rom/etc/config/$PKG_NAME"
+
+# Check 1: If the active config does not exist or is empty (size 0)
+# We consider this "default" (safe to overwrite/install)
+if [ ! -s "$CONFIG" ]; then
+    exit 0
+fi
+
+# Check 2: If the active config exists...
+# We check if a ROM backup exists AND if the files are bit-wise identical.
+# 'cmp -s' returns 0 if identical, 1 if different.
+if [ -f "$ROM_CONFIG" ] && cmp -s "$CONFIG" "$ROM_CONFIG"; then
+    exit 0
+fi
+
+# Fallback: The file exists, is not empty, and differs from ROM (or ROM doesn't exist).
+# We consider this "customized" (do NOT overwrite).
+exit 1

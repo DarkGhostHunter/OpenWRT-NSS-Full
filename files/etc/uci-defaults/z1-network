@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh network; then
+if /usr/bin/is-default-config network; then
 
     touch /etc/config/network
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh usteer; then
+if /usr/bin/is-default-config usteer; then
 
     touch /etc/config/usteer
 

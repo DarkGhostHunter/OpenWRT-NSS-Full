@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh fstab; then
+if /usr/bin/is-default-config fstab; then
 
     touch /etc/config/fstab
 

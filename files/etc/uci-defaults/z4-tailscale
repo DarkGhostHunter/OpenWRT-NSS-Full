@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh tailscale; then
+if /usr/bin/is-default-config tailscale; then
 
     touch /etc/config/tailscale
 

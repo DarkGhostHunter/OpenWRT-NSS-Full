@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh wireless; then
+if /usr/bin/is-default-config wireless; then
 
     touch /etc/config/wireless
 

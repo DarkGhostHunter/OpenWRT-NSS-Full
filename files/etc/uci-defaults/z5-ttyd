@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh ttyd; then
+if /usr/bin/is-default-config ttyd; then
 
     touch /etc/config/ttyd
 

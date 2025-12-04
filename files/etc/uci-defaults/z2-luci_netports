@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh luci_netports; then
+if /usr/bin/is-default-config luci_netports; then
 
     touch /etc/config/luci_netports
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh adblock; then
+if /usr/bin/is-default-config adblock; then
 
     touch /etc/config/adblock
 

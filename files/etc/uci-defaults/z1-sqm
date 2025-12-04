@@ -3,7 +3,7 @@
 grep -q act_mirred </etc/modules.d/70-sched-core && sed -i s/'act_mirred'/'act_nssmirred'/ /etc/modules.d/70-sched-core
 grep -q qca-nss-match </etc/modules.d/70-sched-core || echo 'qca-nss-match' >> /etc/modules.d/70-sched-core
 
-if /etc/has-no-defaults.sh sqm; then
+if /usr/bin/is-default-config sqm; then
 
     touch /etc/config/sqm
 

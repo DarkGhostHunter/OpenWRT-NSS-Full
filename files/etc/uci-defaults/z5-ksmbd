@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh ksmbd; then
+if /usr/bin/is-default-config ksmbd; then
 
     touch /etc/config/ksmbd
 

@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh chrony; then
+if /usr/bin/is-default-config chrony; then
 
     touch /etc/config/chrony
 

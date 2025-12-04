@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh aria2; then
+if /usr/bin/is-default-config aria2; then
 
     touch /etc/config/aria2
 

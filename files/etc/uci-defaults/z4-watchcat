@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh watchcat; then
+if /usr/bin/is-default-config watchcat; then
 
     touch /etc/config/watchcat
 

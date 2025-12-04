@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh system; then
+if /usr/bin/is-default-config system; then
 
     touch /etc/config/system
 

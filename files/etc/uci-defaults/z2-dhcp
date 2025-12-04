@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh dhcp; then
+if /usr/bin/is-default-config dhcp; then
 
     touch /etc/config/dhcp
 

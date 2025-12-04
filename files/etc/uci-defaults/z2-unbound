@@ -1,6 +1,6 @@
 #!/bin/sh
 
-if /etc/has-no-defaults.sh unbound; then
+if /usr/bin/is-default-config unbound; then
 
     touch /etc/config/unbound
 
