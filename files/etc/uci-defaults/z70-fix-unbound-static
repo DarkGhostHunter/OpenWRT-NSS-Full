@@ -1,9 +1,0 @@
-#!/bin/sh
-
-# Enable the unbound static file to add DHCP static leases
-if [ -f /etc/init.d/unbound-static ]; then
-   /etc/init.d/unbound-static enable
-   /etc/init.d/unbound-static start
-fi
-
-exit 0
