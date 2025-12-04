@@ -6,17 +6,13 @@ if /etc/has-no-defaults.sh plexmediaserver; then
 
     uci -q batch <<'EOF'
 delete plexmediaserver.main
-add plexmediaserver.main
-set plexmediaserver.main.plex_browser_root='/mnt/sda1/Media'
-set plexmediaserver.main.plex_drive_mnt='/mnt/sda1'
-set plexmediaserver.main.plex_drive_dev='/dev/sda1'
-set plexmediaserver.main.plex_library_dir='/mnt/sda1/Media/.plex/Library'
-set plexmediaserver.main.plex_tmp_dir='/tmp/plexmediaserver'
-set plexmediaserver.main.plex_application_support_dir='/mnt/sda1/Media/.plex/Library/Application Support'
-set plexmediaserver.main.plex_compressed_archive_path='/mnt/sda1/Media/.plex/Library/Application/plexmediaserver.sqfs'
-set plexmediaserver.main.plex_version=''
-set plexmediaserver.main.plex_bin_dir=''
+set plexmediaserver.main=plexmediaserver
 set plexmediaserver.main.enabled='0'
+set plexmediaserver.main.browser_root='/mnt/sda1/Media'
+set plexmediaserver.main.library_dir='/mnt/sda1/Media/.plex/Library'
+set plexmediaserver.main.application_support_dir='/mnt/sda1/Media/.plex/Library/Application Support'
+set plexmediaserver.main.compressed_archive_path='/mnt/sda1/Media/.plex/Library/Application/plexmediaserver.sqfs'
+set plexmediaserver.main.tmp_dir='/tmp/plexmediaserver'
 
 commit plexmediaserver
 EOF

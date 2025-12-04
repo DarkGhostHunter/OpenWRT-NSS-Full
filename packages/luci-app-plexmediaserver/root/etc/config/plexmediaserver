@@ -1,0 +1,13 @@
+
+config plexmediaserver 'main'
+	option enabled '1'
+	option browser_root '/mnt/sda1/Media'
+	option library_dir '/mnt/sda1/Media/.plex/Library'
+	option application_support_dir '/mnt/sda1/Media/.plex/Library/Application Support'
+	option compressed_archive_path '/mnt/sda1/Media/.plex/Library/Application/plexmediaserver.sqfs'
+	option tmp_dir '/tmp/plexmediaserver'
+	option version ''
+	option bin_dir ''
+	option claim_code ''
+	option force_version ''
+	option force_update_download_url ''
