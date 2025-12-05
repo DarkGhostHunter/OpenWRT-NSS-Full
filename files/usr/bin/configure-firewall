@@ -52,7 +52,7 @@ allow_wan_management() {
     /etc/init.d/firewall enable
 
     # Add the default rules
-    sh -c /rom/etc/init.d/z3-firewall-wan
+    /usr/bin/add-management-wan-to-firewall
 
     # Iterate on each added rule and enable it
     RULES="
@@ -71,14 +71,14 @@ allow_minidlna_wan
 allow_minidlna_discovery_wan
 "
 
-for rule in $RULES; do
-  if uci show "firewall.$rule" >/dev/null 2>&1; then
-    uci set "firewall.$rule.enabled='1'"
-    printf "%Enabled rule [$rule].%b\n" "${GREEN}" "${NC}"
-  else
-    printf "%The [$rule] was not found to be enabled.%b\n" "${YELLOW}" "${NC}"
-  fi
-done
+    for rule in $RULES; do
+        if uci show "firewall.$rule" >/dev/null 2>&1; then
+            uci set "firewall.$rule.enabled='1'"
+            printf "%Enabled rule [$rule].%b\n" "${GREEN}" "${NC}"
+        else
+            printf "%The [$rule] was not found to be enabled. You will have to create it manually %b\n" "${YELLOW}" "${NC}"
+        fi
+    done
 
     uci commit firewall
     /etc/init.d/firewall restart
