@@ -1,7 +1,8 @@
 #!/bin/sh
 
-# Because the System ROM Config does not exist, this always returns true
-if /usr/bin/is-default-config system; then
+# The system ROM Config does not exist, it's generated on-demand, but if the
+# config already exists, leave as it-is
+if /usr/bin/is-default-config system || [ ! -f /etc/config/system ]; then
 
     touch /etc/config/system
 
