@@ -1,0 +1,6 @@
+#!/bin/sh
+
+# Ensure unbound scripts are executable
+chmod +x /usr/lib/unbound/*
+
+exit 0
