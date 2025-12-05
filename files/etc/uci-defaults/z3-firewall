@@ -124,27 +124,29 @@ set firewall.@forwarding[8].src='lan'
 set firewall.@forwarding[8].dest='zerotier'
 
 # DNS redirection for Adblock
-delete firewall.force_adblock_iot
-set firewall.force_adblock_iot=redirect
-set firewall.force_adblock_iot.name='Force-Adblock-Iot'
-set firewall.force_adblock_iot.src='IoT'
-add_list firewall.force_adblock_iot.proto='tcp'
-add_list firewall.force_adblock_iot.proto='udp'
-set firewall.force_adblock_iot.src_dport='53'
-set firewall.force_adblock_iot.dest_port='53'
-set firewall.force_adblock_iot.target='DNAT'
-set firewall.force_adblock_iot.enabled='0'
+delete firewall.@redirect[0]
+add firewall redirect
+set firewall.@redirect[0]=redirect
+set firewall.@redirect[0].name='Force-Adblock-Iot'
+set firewall.@redirect[0].src='IoT'
+add_list firewall.@redirect[0].proto='tcp'
+add_list firewall.@redirect[0].proto='udp'
+set firewall.@redirect[0].src_dport='53'
+set firewall.@redirect[0].dest_port='53'
+set firewall.@redirect[0].target='DNAT'
+set firewall.@redirect[0].enabled='0'
 
-delete firewall.force_adblock_lan
-set firewall.force_adblock_lan=redirect
-set firewall.force_adblock_lan.name='Force-Adblock-Lan'
-set firewall.force_adblock_lan.src='lan'
-add_list firewall.force_adblock_lan.proto='tcp'
-add_list firewall.force_adblock_lan.proto='udp'
-set firewall.force_adblock_lan.src_dport='53'
-set firewall.force_adblock_lan.dest_port='53'
-set firewall.force_adblock_lan.target='DNAT'
-set firewall.force_adblock_lan.enabled='0'
+delete firewall.@redirect[1]
+add firewall redirect
+set firewall.@redirect[1]=redirect
+set firewall.@redirect[1].name='Force-Adblock-Lan'
+set firewall.@redirect[1].src='lan'
+add_list firewall.@redirect[1].proto='tcp'
+add_list firewall.@redirect[1].proto='udp'
+set firewall.@redirect[1].src_dport='53'
+set firewall.@redirect[1].dest_port='53'
+set firewall.@redirect[1].target='DNAT'
+set firewall.@redirect[1].enabled='0'
 
 # NSS offloading
 delete firewall.qcanssecm
