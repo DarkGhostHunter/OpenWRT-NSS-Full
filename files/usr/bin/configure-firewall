@@ -52,7 +52,7 @@ allow_wan_management() {
     /etc/init.d/firewall enable
 
     # Add the default rules
-    /usr/bin/add-management-wan-to-firewall
+    /usr/bin/add-wan-rules-to-firewall
 
     # Iterate on each added rule and enable it
     RULES="

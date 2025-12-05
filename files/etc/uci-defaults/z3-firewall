@@ -157,7 +157,7 @@ set firewall.qcanssecm.path='/etc/firewall.d/qca-nss-ecm'
 commit firewall
 EOF
 
-    /usr/bin/add-management-wan-to-firewall
+    /usr/bin/add-wan-rules-to-firewall
 
 fi
 
