@@ -4,8 +4,8 @@ if /usr/bin/is-default-config minidlna; then
 
     touch /etc/config/minidlna
 
-SERIAL="$(cat /dev/urandom | tr -dc 'A-Z0-1' | head -c16)"
-UUID=$(cat /proc/sys/kernel/random/uuid)
+    SERIAL="$(cat /dev/urandom | tr -dc 'A-Z0-1' | head -c16)"
+    UUID=$(cat /proc/sys/kernel/random/uuid)
 
     uci -q batch <<EOF
 delete minidlna.config
