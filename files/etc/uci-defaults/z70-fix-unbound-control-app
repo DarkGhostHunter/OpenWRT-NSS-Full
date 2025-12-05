@@ -1,0 +1,13 @@
+#!/bin/sh
+
+# Generate stuff for unbound
+if [ -f /etc/init.d/unbound ]; then
+    # Setup the unbound control app
+    unbound-control-setup
+
+    # Ensure the Unbound Control App is "Local Host, Encrypted".
+    uci set unbound.ub_main.unbound_control='2'
+    uci commit unbound
+fi
+
+exit 0

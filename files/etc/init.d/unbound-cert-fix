@@ -1,0 +1,31 @@
+#!/bin/sh /etc/rc.common
+
+# Start before Unbound
+START=18
+
+UNBOUND_PATH=/var/lib/unbound
+
+start() {
+    # 1. Ensure the unbound directory exists (it is often in tmpfs)
+    if [ ! -d "$UNBOUND_PATH" ]; then
+        mkdir -p $UNBOUND_PATH
+        # Set permissions so the unbound user can access it
+        chown unbound:unbound $UNBOUND_PATH
+        chmod 755 $UNBOUND_PATH
+    fi
+
+    # 2. Copy the certificate bundle to the chroot location expected by unbound_srv.conf
+    if [ -f /etc/ssl/certs/ca-certificates.crt ]; then
+        cp /etc/ssl/certs/ca-certificates.crt $UNBOUND_PATH/ca-certificates.crt
+        # Ensure the file is readable by the unbound user
+        chmod 644 $UNBOUND_PATH/ca-certificates.crt
+    fi
+
+    # 3. Only copy root.key if it exists (it might not if we skipped anchor)
+    if [ -f /etc/unbound/root.key ]; then
+        cp -p /etc/unbound/root.key $UNBOUND_PATH/root.key
+        # Ensure the file is readable by the unbound user
+        chmod 644 $UNBOUND_PATH/root.key
+    fi
+}
+EOF
