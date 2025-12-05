@@ -46,12 +46,6 @@ add_list minidlna.config.album_art_names='thumb.jpg'
 commit minidlna
 EOF
 
-# Create random serial number of 16 digits
-uci set option minidlna.config.uuid="$(cat /dev/urandom | tr -dc 'A-Z0-1' | head -c16)"
-
-# Announce UUID based on the IPv6 UUID from the network
-uci set option minidlna.config.uuid="$(cat /proc/sys/kernel/random/uuid)"
-
 fi
 
 exit 0
