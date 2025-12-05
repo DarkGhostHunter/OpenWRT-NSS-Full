@@ -103,19 +103,23 @@ set_ap_mode() {
 
     # 2. Configure LAN as DHCP Client
     uci set network.lan.proto='dhcp'
-    uci -q delete network.lan.ipaddr
-    uci -q delete network.lan.netmask
 
-    # 3. Disable WAN Interface logical config, and don't bring it on boot.
+    # Remove static IP settings to prevent conflicts
+    uci delete network.lan.ipaddr
+    uci delete network.lan.netmask
+    uci delete network.lan.gateway
+    uci delete network.lan.dns
+
+    # 3. Disable DHCP Server on LAN
+    uci set dhcp.lan.ignore='1'
+
+    # 4. Disable WAN Interface logical config, and don't bring it on boot.
     uci set network.wan.proto='none'
     uci set network.wan.disabled='1'
     uci set network.wan.auto='0'
     uci set network.wan6.proto='none'
     uci set network.wan6.disabled='1'
     uci set network.wan6.auto='0'
-
-    # 4. Disable DHCP Server on LAN
-    uci set dhcp.lan.ignore='1'
 
     uci commit network
     uci commit dhcp
