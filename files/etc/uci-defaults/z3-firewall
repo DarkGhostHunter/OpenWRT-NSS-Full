@@ -21,6 +21,7 @@ set firewall.@zone[0].name='lan'
 set firewall.@zone[0].input='ACCEPT'
 set firewall.@zone[0].output='ACCEPT'
 set firewall.@zone[0].forward='ACCEPT'
+delete firewall.@zone[0].network
 add_list firewall.@zone[0].network='lan'
 
 delete firewall.@forwarding[0]
@@ -37,6 +38,7 @@ set firewall.@zone[1].name='IoT'
 set firewall.@zone[1].input='REJECT'
 set firewall.@zone[1].output='ACCEPT'
 set firewall.@zone[1].forward='REJECT'
+delete firewall.@zone[1].network
 add_list firewall.@zone[1].network='IoT'
 
 delete firewall.@forwarding[1]
@@ -50,6 +52,7 @@ delete firewall.@zone[2]
 add firewall zone
 set firewall.@zone[2]=zone
 set firewall.@zone[2].name='wan'
+delete firewall.@zone[2].network
 add_list firewall.@zone[2].network='wan'
 add_list firewall.@zone[2].network='wan6'
 set firewall.@zone[2].input='REJECT'
@@ -69,6 +72,7 @@ delete firewall.@zone[3]
 add firewall zone
 set firewall.@zone[3]=zone
 set firewall.@zone[3].name='tailscale'
+delete firewall.@zone[3].network
 add_list firewall.@zone[3].network='tailscale'
 set firewall.@zone[3].input='ACCEPT'
 set firewall.@zone[3].output='ACCEPT'
@@ -97,6 +101,7 @@ delete firewall.@zone[4]
 add firewall zone
 set firewall.@zone[4]=zone
 set firewall.@zone[4].name='zerotier'
+delete firewall.@zone[4].network
 add_list firewall.@zone[4].network='zerotier'
 set firewall.@zone[4].input='ACCEPT'
 set firewall.@zone[4].output='ACCEPT'
