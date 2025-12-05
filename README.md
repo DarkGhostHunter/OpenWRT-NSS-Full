@@ -110,6 +110,10 @@ You will probably want to change both your WiFi SSID on both antennas into somet
 
 Usteer already has some good-for-anything defaults about minimum signal strength and offset.
 
+> [!NOTE]
+> 
+> As a rule of thumb, use wider channels for 5GHz if your _Channel Analysis_ (under _Status_) shows very far neighbors with very low noise. Otherwise, stick with a narrower channel for better reach.   
+
 ### 2. Configure your firewall
 
 The [`configure-firewall`](files/usr/bin/configure-firewall) script disables the firewall entirely, allows OpenWRT management accessible from `wan` (outside), or restores the defaults (enabled).
