@@ -33,7 +33,7 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
     * **[NetData](https://github.com/netdata/netdata):** Powerful system data visualizer. [Configured to be lean](files/etc/netdata/netdata.conf). Pinned to CPU0.
     * **[Watchcat](https://openwrt.org/docs/guide-user/advanced/watchcat):** Restarts the WAN interface if Internet down (because some ISP Routers are dumb).
     * **[Easy SMB shares](files/etc/ksmbd/ksmbd.conf.template.example):** Robust, easy to use `ksmbd` template to mount your SSD/HDD/NVMe. Hardcoded `SMBUSER:SMBPASSWORD`.
-    * **[BanIP](https://openwrt.org/docs/guide-user/services/banip):** Want to block an IP, a Country or a social network? Now you can.
+    * **[BanIP](https://openwrt.org/docs/guide-user/services/banip):** Want to block an IP, a Country, a DNS-over-HTTPS or a social network? Now you can, but you're on your own for the proper instructions.
     * **[TTYD](https://tsl0922.github.io/ttyd/) + [btop](https://github.com/aristocratos/btop):** Show btop statistics at port `7682` with single unique process (great if you don't want to use netstat) with zero permissions (`nobody:nogroup`). 
 
 > [!NOTE]
