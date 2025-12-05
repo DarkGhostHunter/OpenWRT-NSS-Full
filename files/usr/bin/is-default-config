@@ -1,5 +1,10 @@
 #!/bin/sh
 
+# If its the first time this router booted OpenWRT, the `first_boot_done` file does not exist.
+if [ ! -s /etc/first_boot_done ]; then
+  exit 0
+fi
+
 PKG_NAME="$1"
 
 # Validation: Check if argument is provided.
