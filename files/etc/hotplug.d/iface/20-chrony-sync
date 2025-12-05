@@ -1,8 +1,7 @@
 #!/bin/sh
 
 # Only run if the interface is 'wan' and the action is 'ifup'
-[ "$INTERFACE" = "wan" ] || exit 0
-[ "$ACTION" = "ifup" ] || exit 0
+[ "$ACTION" = "ifup" ] && [ "$INTERFACE" = "wan" ] || exit 0
 
 # Check if the tool exists and runs it
 if [ -x /usr/sbin/chrony-hotplug ] && /usr/bin/has-internet; then
