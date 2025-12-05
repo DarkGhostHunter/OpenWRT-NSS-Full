@@ -1,0 +1,57 @@
+#!/bin/sh
+
+if /usr/bin/is-default-config minidlna; then
+
+    touch /etc/config/minidlna
+
+SERIAL="$(cat /dev/urandom | tr -dc 'A-Z0-1' | head -c16)"
+UUID=$(cat /proc/sys/kernel/random/uuid)
+
+    uci -q batch <<EOF
+delete minidlna.config
+
+set minidlna.config.enabled='0'
+set minidlna.config.user='SMBUSER'
+set minidlna.config.port='8200'
+set minidlna.config.interface='br-lan'
+set minidlna.config.friendly_name='OpenWrt DLNA Server'
+set minidlna.config.db_dir='/mnt/sda1/Media/.minidlna'
+set minidlna.config.inotify='1'
+set minidlna.config.enable_tivo='0'
+set minidlna.config.wide_links='1'
+set minidlna.config.strict_dlna='0'
+set minidlna.config.presentation_url=''
+set minidlna.config.notify_interval='900'
+set minidlna.config.serial='$SERIAL'
+set minidlna.config.uuid='$UUID'
+set minidlna.config.model_number='1'
+set minidlna.config.root_container='.'
+add_list minidlna.config.media_dir='P,/mnt/sda1/Media/Photos'
+add_list minidlna.config.media_dir='A,/mnt/sda1/Media/Music'
+add_list minidlna.config.media_dir='V,/mnt/sda1/Media/Movies'
+add_list minidlna.config.media_dir='V,/mnt/sda1/Media/Series'
+add_list minidlna.config.album_art_names='Cover.jpg'
+add_list minidlna.config.album_art_names='cover.jpg'
+add_list minidlna.config.album_art_names='AlbumArtSmall.jpg'
+add_list minidlna.config.album_art_names='albumartsmall.jpg'
+add_list minidlna.config.album_art_names='AlbumArt.jpg'
+add_list minidlna.config.album_art_names='albumart.jpg'
+add_list minidlna.config.album_art_names='Album.jpg'
+add_list minidlna.config.album_art_names='album.jpg'
+add_list minidlna.config.album_art_names='Folder.jpg'
+add_list minidlna.config.album_art_names='folder.jpg'
+add_list minidlna.config.album_art_names='Thumb.jpg'
+add_list minidlna.config.album_art_names='thumb.jpg'
+
+commit minidlna
+EOF
+
+# Create random serial number of 16 digits
+uci set option minidlna.config.uuid="$(cat /dev/urandom | tr -dc 'A-Z0-1' | head -c16)"
+
+# Announce UUID based on the IPv6 UUID from the network
+uci set option minidlna.config.uuid="$(cat /proc/sys/kernel/random/uuid)"
+
+fi
+
+exit 0
