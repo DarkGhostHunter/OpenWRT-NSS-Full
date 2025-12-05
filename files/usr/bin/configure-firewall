@@ -72,12 +72,7 @@ allow_minidlna_discovery_wan
 "
 
     for rule in $RULES; do
-        if uci show "firewall.$rule" >/dev/null 2>&1; then
-            uci set "firewall.$rule.enabled='1'"
-            printf "%Enabled rule [$rule].%b\n" "${GREEN}" "${NC}"
-        else
-            printf "%The [$rule] was not found to be enabled. You will have to create it manually %b\n" "${YELLOW}" "${NC}"
-        fi
+        uci set "firewall.$rule.enabled='1'"
     done
 
     uci commit firewall
