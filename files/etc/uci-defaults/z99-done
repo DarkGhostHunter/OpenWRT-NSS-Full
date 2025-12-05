@@ -1,15 +1,5 @@
 #!/bin/sh
 
-# --- SAFETY CHECK (The Loop Breaker) ---
-# If this file exists, we have already run. Exit immediately.
-if [ -f /etc/first_boot_done ];
-then
-    exit 0
-fi
-
-# --- MARK AS DONE ---
-touch /etc/first_boot_done
-
 # --- LOGGING ---
 logger -p notice -t luci-defaults "First boot setup complete. Applying changes live..."
 
@@ -58,5 +48,8 @@ fi
 sysctl -p
 
 logger -p notice -t luci-defaults "Live configuration application complete."
+
+# --- MARK AS FIRST BOOT DONE ---
+touch /etc/first_boot_done
 
 exit 0
