@@ -1,5 +1,6 @@
 #!/bin/sh
 
+# Because the Network ROM Config does not exist, this always returns true
 if /usr/bin/is-default-config network; then
 
     touch /etc/config/network
