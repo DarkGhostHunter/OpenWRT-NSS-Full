@@ -6,7 +6,7 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
 
 > [!WARNING]
 >
-> This build **ties** to save your device default configuration, but anyway, save it _before_ you flash. Some services will be disabled to avoid misconfiguration and you will need to enable them again in `System → Startup`.
+> This build **tries** to save your device default configuration, but anyway, **save it before you flash** and then restore it. Some services will be disabled to avoid misconfiguration, and you will need to enable them again in `System → Startup`.
 
 ## Highlights:
 
