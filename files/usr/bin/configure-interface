@@ -120,6 +120,10 @@ set_ap_mode() {
     uci commit network
     uci commit dhcp
 
+    echo "Disabling Watchcat..."
+    /etc/init.d/watchcat stop
+    /etc/init.d/watchcat disable
+
     echo "Disabling Unbound and Odhcpd (Not needed in AP mode)..."
     /etc/init.d/unbound stop
     /etc/init.d/unbound disable
@@ -151,10 +155,6 @@ set_ap_mode() {
         iptables -t nat -F
         iptables -t mangle -F
     fi
-
-    echo "Disabling Watchcat..."
-    /etc/init.d/watchat stop
-    /etc/init.d/watchat disable
 
     echo "Applying network changes... Goodbye!"
     /etc/init.d/network restart
