@@ -106,9 +106,13 @@ set_ap_mode() {
     uci -q delete network.lan.ipaddr
     uci -q delete network.lan.netmask
 
-    # 3. Disable WAN Interface logical config
+    # 3. Disable WAN Interface logical config, and don't bring it on boot.
     uci set network.wan.proto='none'
+    uci set network.wan.disabled='1'
+    uci set network.wan.auto='0'
     uci set network.wan6.proto='none'
+    uci set network.wan6.disabled='1'
+    uci set network.wan6.auto='0'
 
     # 4. Disable DHCP Server on LAN
     uci set dhcp.lan.ignore='1'
