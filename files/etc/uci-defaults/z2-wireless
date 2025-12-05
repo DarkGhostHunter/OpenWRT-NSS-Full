@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # As with the `system` config created on demand, we will also skip this if the config exists.
-if /usr/bin/is-default-config wireless  || [ ! -f /etc/config/wireless ]; then
+if /usr/bin/is-default-config wireless && [ ! -f /etc/config/wireless ]; then
 
     touch /etc/config/wireless
 
