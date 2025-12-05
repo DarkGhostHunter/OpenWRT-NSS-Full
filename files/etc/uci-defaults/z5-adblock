@@ -7,7 +7,7 @@ if /usr/bin/is-default-config adblock; then
     uci -q batch <<'EOF'
 delete adblock.global
 set adblock.global=adblock
-set adblock.global.adb_enabled='1'
+set adblock.global.adb_enabled='0'
 set adblock.global.adb_debug='0'
 set adblock.global.adb_forcedns='1'
 set adblock.global.adb_safesearch='0'
