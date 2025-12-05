@@ -8,17 +8,10 @@ PKG_NAME="$1"
 CONFIG="/etc/config/$PKG_NAME"
 ROM_CONFIG="/rom/etc/config/$PKG_NAME"
 
-# 1. Immediate Check: If active config is missing or empty,
-# it effectively needs to be "restored/updated".
-if [ ! -s "$CONFIG" ]; then
+# 1. Immediate Check: If active config is missing or empty, or ROM version does
+#    not exist, it effectively needs to be "restored/updated".
+if [ ! -s "$CONFIG" ] || [ ! -f "$ROM_CONFIG" ]; then
     exit 0
-fi
-
-# 2. Check if ROM config exists to compare against.
-# If ROM version doesn't exist, the user created this file manually.
-# Therefore, it is NOT default (Exit 1).
-if [ ! -f "$ROM_CONFIG" ]; then
-    exit 1
 fi
 
 # FUNCTION: Normalization Pipeline
