@@ -169,3 +169,7 @@ No, I'm not sure, but doing so doesn't bring the router down, so probably it has
 * **Can you include Jellyfin instead of Plex?**
 
 No, mostly because you will need Docker/Podman or [`chroot`](https://openwrt.org/docs/guide-user/services/chroot), and I'm not familiar with that setup. I would if someone decided to create a small package for it, like [I did for Plex Media Server](packages/luci-app-plexmediaserver).
+
+* **My router DHCP server dies and I have to resort to use manual DHCP config**
+
+Remove your DHCP static leases from `etc/config/dhcp` (`Network → DHCP → Leases`) and restart `odhcpd` (`service odhcpd restart`). If it doesn't fail, then **ensure all your static leases have a valid MAC address**. Use `02:xx:xx:xx:xx:xx` as placeholder if necessary. 
