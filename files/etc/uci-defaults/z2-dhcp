@@ -68,8 +68,9 @@ add_list dhcp.IoT.dhcp_option='15,lan'
 delete dhcp.@host[0]
 add dhcp host
 set dhcp.@host[0]=host
-set dhcp.@host[0].name='AP_IoT'
+set dhcp.@host[0].name='AP-IoT'
 set dhcp.@host[0].ip='192.168.0.254'
+set dhcp.@host[0].mac='02:00:C0:A8:00:FE'
 
 commit dhcp
 EOF
