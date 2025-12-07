@@ -106,20 +106,27 @@ start_service() {
 
     procd_open_instance
 
-    # 7. Fix: Strict Environment Enforcement & Nesting Prevention
-    # We calculate the parent of library_dir to serve as HOME.
-    # Plex defaults to writing to ~/Library/Logs and ~/Library/Caches.
-    # By setting HOME to the parent (e.g., .plex), Plex's internal "~/Library"
-    # maps exactly to our configured library_dir (.plex/Library), merging the folders.
-    local plex_home="$(dirname "$library_dir")"
+    # 7. Fix: Smart HOME Detection (Nesting Prevention)
+    # If library_dir ends in "/Library", we use the parent as HOME.
+    # If library_dir does NOT end in "/Library" (e.g. ".../.plex"), we use it AS the HOME.
+    # This ensures Plex always writes to ".../.plex/Library" regardless of which path style the user chose.
+    local plex_home
+    case "$library_dir" in
+        */Library)
+            plex_home="$(dirname "$library_dir")"
+            ;;
+        *)
+            plex_home="$library_dir"
+            ;;
+    esac
 
-    # 10. Fix: CPU Affinity (Pinning) - Updated for smp_affinity script
-    # CPU0: OS/USB (Needed for Media I/O)
-    # CPU1: Ethernet/Crypto
-    # CPU2: WiFi (Reserved - Latency Sensitive)
-    # CPU3: NSS (Reserved - Heavy Load)
-    # Result: Pin Plex to 0-1 (50% CPU Limit) to protect WiFi and NSS.
-    procd_set_param command /usr/bin/taskset -c 0-1 /usr/bin/env HOME="$plex_home" "$bin_dir/Plex Media Server"
+    # 10. Fix: Priority Management (Nice Level)
+    # Replaced taskset (pinning) with process priority management.
+    # 'nice 19' tells the kernel this is the lowest priority process.
+    # It will use ALL cores (0-3) when they are idle, but yield immediately
+    # if WiFi (CPU2), NSS (CPU3), or System (CPU0/1) need resources.
+    procd_set_param nice 19
+    procd_set_param command /usr/bin/env HOME="$plex_home" "$bin_dir/Plex Media Server"
 
     # 6. Fix: Set Working Directory to Library Dir
     procd_set_param workdir "$library_dir"
