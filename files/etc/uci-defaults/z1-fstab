@@ -1,6 +1,8 @@
 #!/bin/sh
 
-if /usr/bin/is-default-config fstab; then
+# The fstab ROM Config does not exist, it's generated on-demand, but if the
+# config already exists, leave as it-is
+if /usr/bin/is-default-config fstab && [ ! -f /etc/config/fstab ]; then
 
     touch /etc/config/fstab
 
