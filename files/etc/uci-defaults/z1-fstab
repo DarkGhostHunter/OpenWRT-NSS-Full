@@ -22,13 +22,6 @@ set fstab.@mount[0].enabled='0'
 set fstab.@mount[0].label='CHANGE ME FOR THE PROPER TARGET'
 set fstab.@mount[0].target='/mnt/sda1'
 
-delete fstab.@mount[1]
-add fstab mount
-set fstab.@mount[1]=mount
-set fstab.@mount[1].enabled='0'
-set fstab.@mount[1].target='/tmp/plexmediaserver'
-set fstab.@mount[1].fstype='squashfs'
-
 delete fstab.@swap[0]
 add fstab swap
 set fstab.@swap[0]=swap
