@@ -540,6 +540,21 @@ echo "CONFIG_CCACHE=y" >> .config
 sed -i '/CONFIG_SQUASHFS_LZ4/d' .config
 echo "CONFIG_SQUASHFS_LZ4=y" >> .config
 
+# 7.3. Enable ZRAM with LZ4 for swap as default, and ZSTD for more RAM
+sed -i '/CONFIG_KERNEL_ZRAM_BACKEND_LZ4/d' .config
+echo "CONFIG_KERNEL_ZRAM_BACKEND_LZ4=y" >> .config
+sed -i '/CONFIG_KERNEL_ZRAM_BACKEND_ZSTD/d' .config
+echo "CONFIG_KERNEL_ZRAM_BACKEND_ZSTD=y" >> .config
+sed -i '/CONFIG_KERNEL_ZRAM_DEF_COMP_LZ4/d' .config
+echo "CONFIG_KERNEL_ZRAM_DEF_COMP_LZ4=y" >> .config
+
+# 7.4 Disable other compression algorithms. It's either performance (lz4) or ratio (zstd)
+sed -i '/CONFIG_KERNEL_ZRAM_BACKEND_LZO/d' .config
+echo "# CONFIG_KERNEL_ZRAM_BACKEND_LZO is not set" >> .config
+sed -i '/CONFIG_KERNEL_ZRAM_BACKEND_LZ4HC/d' .config
+echo "# CONFIG_KERNEL_ZRAM_BACKEND_LZ4HC is not set" >> .config
+
+
 if command -v ccache &> /dev/null; then
     mkdir -p staging_dir/host/bin
     ln -sf "$(command -v ccache)" staging_dir/host/bin/ccache

@@ -19,7 +19,7 @@ set system.@system[0].urandom_seed='0'
 set system.@system[0].log_proto='udp'
 set system.@system[0].conloglevel='8'
 set system.@system[0].cronloglevel='5'
-set system.@system[0].zram_comp_algo='zstd'
+set system.@system[0].zram_comp_algo='lz4'
 set system.@system[0].description='OpenWrt on Dynalink DL-WRX36 (NSS)'
 set system.@system[0].notes='Custom NSS-enabled OpenWrt firmware for Dynalink DL-WRX36'
 

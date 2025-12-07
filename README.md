@@ -6,13 +6,13 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
 
 > [!WARNING]
 >
-> This build **tries** to save your device default configuration, but anyway, **save it before you flash** and then restore it. Some services will be disabled to avoid misconfiguration, and you will need to enable them again in `System → Startup`.
+> This build **tries** to save your device default configuration, but anyway, **save it before you flash** and then restore it. Some services will be disabled to avoid misconfiguration, and you will need to enable them again in `System → Startup`. Essentially, if `/etc/config/system` and `/etc/config/wireless` exist, these will be kept.
 
 ## Highlights:
 
 * **Performance**
     * **NSS enabled:** Offloads network to custom hardware, less CPU usage.
-    * **[CPU Pining](files/etc/init.d/smp_affinity):** CPU0 for generic tasks. Ethernet & Crypto on CPU1. WiFi on CPU2. NSS Queue in CPU3.
+    * **[CPU Pining](files/etc/init.d/smp_affinity):** CPU0 for generic tasks. Ethernet & Crypto on CPU1. WiFi on CPU2. NSS Queue in CPU3 (or CPU1+CPU3 for heavy networks).
     * **Kernel tweaks:** Specific for Cortex-A53 arch. NEON (SIMD) enabled. CRC32, Crypto (AES/SHA1/SHA2) hardware accelerated.
     * **ZRAM 512MB:** Swap on compressed RAM with ZSTD compression to minimize flash wear on high memory pressure (like for huge Adblock lists).
 
