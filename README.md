@@ -184,3 +184,9 @@ Buy bigger router? If that's not your option, you can try splitting NSS queues i
 ```
 
 The first line applies the affinity immediately, and the second makes it to run on boot.
+
+* **Will you keep updated this?**
+
+Until it hits the next OpenWRT stable release, and then it will stay there until there meaningful performance optimizations for the network stack, which after NSS I don't see meaningful.
+
+So yes, but I don't expect flashing this every month on the Router.
