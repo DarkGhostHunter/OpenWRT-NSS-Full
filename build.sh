@@ -532,8 +532,13 @@ add_package() {
     echo "CONFIG_PACKAGE_${pkg}=y" >> .config
 }
 
+# 7.1. Enable CCACHE
 sed -i '/CONFIG_CCACHE/d' .config
 echo "CONFIG_CCACHE=y" >> .config
+
+# 7.2. Enable CONFIG_SQUASHFS_LZ4. This enables SquashFS decompression to be fast af.
+sed -i '/CONFIG_SQUASHFS_LZ4/d' .config
+echo "CONFIG_SQUASHFS_LZ4=y" >> .config
 
 if command -v ccache &> /dev/null; then
     mkdir -p staging_dir/host/bin

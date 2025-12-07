@@ -9,9 +9,9 @@ delete plexmediaserver.main
 set plexmediaserver.main=plexmediaserver
 set plexmediaserver.main.enabled='0'
 set plexmediaserver.main.browser_root='/mnt/sda1/Media'
-set plexmediaserver.main.library_dir='/mnt/sda1/Media/.plex/Library'
-set plexmediaserver.main.application_support_dir='/mnt/sda1/Media/.plex/Library/Application Support'
-set plexmediaserver.main.compressed_archive_path='/mnt/sda1/Media/.plex/Library/Application/plexmediaserver.sqfs'
+set plexmediaserver.main.library_dir='/mnt/sda1/Media/.plex'
+set plexmediaserver.main.application_support_dir='/mnt/sda1/Media/.plex/Application Support'
+set plexmediaserver.main.compressed_archive_path='/mnt/sda1/Media/.plex/Application/plexmediaserver.sqfs'
 set plexmediaserver.main.tmp_dir='/tmp/plexmediaserver'
 
 commit plexmediaserver
