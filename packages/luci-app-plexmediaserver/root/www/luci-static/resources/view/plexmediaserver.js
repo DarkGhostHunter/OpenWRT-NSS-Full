@@ -272,7 +272,6 @@ return view.extend({
         o = s.taboption('paths', form.Value, 'library_dir', _('Library Directory'), _('Path to the main Plex library data. Defaults to the Browser Root path appended with /.plex/Library.'));
         o = s.taboption('paths', form.Value, 'application_support_dir', _('Application Support Dir'), _('Where metadata is stored. Defaults to the Library Directory path appended with /Application Support.'));
         o = s.taboption('paths', form.Value, 'compressed_archive_path', _('Compressed Archive Path'), _('Location of plexmediaserver.sqfs or .txz. Defaults to the Library Directory path appended with /Application/plexmediaserver.sqfs.'));
-        o = s.taboption('paths', form.Value, 'tmp_dir', _('Temp Directory'), _('RAM location where Plex is decompressed. Default: /tmp/plexmediaserver.'));
 
         // Reclaim Button
         o = s.taboption('paths', form.Button, '_do_reclaim', _('Reclaim Ownership'));
