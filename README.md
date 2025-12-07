@@ -173,3 +173,14 @@ No, mostly because you will need Docker/Podman or [`chroot`](https://openwrt.org
 * **My router DHCP server dies and I have to resort to use manual DHCP config**
 
 Remove your DHCP static leases from `etc/config/dhcp` (`Network → DHCP → Leases`) and restart `odhcpd` (`service odhcpd restart`). If it doesn't fail, then **ensure all your static leases have a valid MAC address**. Use `02:xx:xx:xx:xx:xx` as placeholder if necessary. 
+
+* **My super-duper network saturates de device and hogs. What can I do?**
+
+Buy bigger router? If that's not your option, you can try splitting NSS queues in two cores instead of just CPU3 by enabling the script:
+
+```shell
+/etc/init.d/smp_affinity_split start
+/etc/init.d/smp_affinity_split enable
+```
+
+The first line applies the affinity immediately, and the second makes it to run on boot.

@@ -15,6 +15,7 @@ banip
 sysntpd
 minidlna
 watchcat
+smp_affinity_split
 "
 
 for service in $SERVICES; do
