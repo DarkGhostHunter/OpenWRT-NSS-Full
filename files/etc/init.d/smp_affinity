@@ -69,5 +69,8 @@ boot() {
         set_affinity 8 "nss_queue"
     fi
 
+
+    set_affinity 8 "nss_empty"
+
     logger -p notice -t smp_affinity "NSS SMP Affinity applied."
 }
