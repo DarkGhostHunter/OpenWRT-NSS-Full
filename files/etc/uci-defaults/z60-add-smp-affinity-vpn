@@ -1,0 +1,107 @@
+#!/bin/sh
+
+# -------------------------------------------------------------------------
+# 1. Create the Init.d Service (Hardware Affinity)
+#    - Moves Crypto Engine (ce) to CPU3
+#    - Does NOT enable itself by default
+# -------------------------------------------------------------------------
+cat << "EOF" > /etc/init.d/smp-affinity-vpn
+#!/bin/sh /etc/rc.common
+
+START=99
+
+# Helper: Set IRQ Affinity
+set_irq_affinity() {
+    local mask="$1"
+    local pattern="$2"
+    for irq in $(grep -i "$pattern" /proc/interrupts | awk '{print $1}' | tr -d ':'); do
+        if [ -d "/proc/irq/$irq" ]; then
+            echo "$mask" > "/proc/irq/$irq/smp_affinity"
+        fi
+    done
+}
+
+start() {
+    # Only runs if the user explicitly enabled the service
+    logger -p notice -t sm_affinity_vpn "Service started: Moving Crypto Hardware (ce) interrupts to CPU3..."
+    set_irq_affinity 8 "ce[0-9]"
+}
+
+stop() {
+    # We leave it as-is to avoid disrupting active connections
+    true
+}
+EOF
+
+# Make executable
+chmod +x /etc/init.d/smp-affinity-vpn
+
+# -------------------------------------------------------------------------
+# 2. Create the Hotplug Script (Software Affinity)
+#    - Triggered on interface UP
+#    - Checks if smp-affinity-vpn is ENABLED before acting
+#    - Pins WireGuard, Tailscale, and ZeroTier to CPU3
+# -------------------------------------------------------------------------
+mkdir -p /etc/hotplug.d/iface
+
+cat << "EOF" > /etc/hotplug.d/iface/99-sm-vpn-affinity
+#!/bin/sh
+
+# 1. Exit immediately if not an "ifup" action
+[ "$ACTION" = "ifup" ] || exit 0
+
+# 2. Exit immediately if the master service is NOT enabled
+#    This respects the user's decision to keep optimization off.
+/etc/init.d/smp-affinity-vpn enabled || exit 0
+
+MASK=8  # CPU3
+
+# Helper to pin process by name (userspace or kernel thread)
+pin_process() {
+    local pattern="$1"
+    local name="$2"
+    
+    # Find PIDs (pgrep -f matches full command line)
+    for pid in $(pgrep -f "$pattern"); do
+        if [ -d "/proc/$pid" ]; then
+            taskset -p $MASK $pid >/dev/null 2>&1
+            logger -p notice -t sm_vpn "Pinned $name (PID $pid) to CPU3"
+        fi
+    done
+}
+
+# --- Logic for specific VPNs ---
+
+# A. WireGuard (Kernel Threads)
+# Look for threads matching 'wg-crypt-[interface_name]'
+if [ -n "$(pgrep -f "wg-crypt-$DEVICE")" ]; then
+    pin_process "wg-crypt-$DEVICE" "WireGuard Thread"
+fi
+
+# B. Tailscale (Userspace)
+# Tailscale benefits from CPU3 to share cache with NSS incoming packets
+# Tailscale interfaces usually start with 'tailscale', like 'tailscale0'.
+case "$DEVICE" in
+    tailscale*)
+        pin_process "tailscaled" "Tailscale Daemon"
+        ;;
+esac
+
+# C. ZeroTier (Userspace)
+# Like Tailscale, benefits from avoiding CPU0->CPU3 context switching
+# ZeroTier interfaces usually start with 'zt', like 'zt87654321'
+case "$DEVICE" in
+    zt*)
+        pin_process "zerotier-one" "ZeroTier Daemon"
+        ;;
+esac
+
+EOF
+
+# -------------------------------------------------------------------------
+# 3. Finalize
+# -------------------------------------------------------------------------
+# We do NOT run 'enable' here. The service remains disabled until
+# the user explicitly runs `/etc/init.d/smp-affinity-vpn enable`.
+
+exit 0

@@ -12,8 +12,9 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
 
 * **Performance**
     * **NSS enabled:** Offloads network to custom hardware, less CPU usage.
-    * **[CPU Pining](files/etc/init.d/smp_affinity):** CPU0 for generic tasks. Ethernet & Crypto on CPU1. WiFi on CPU2. NSS Queue in CPU3 (or CPU1+CPU3 for heavy networks).    * **Kernel tweaks:** Specific for Cortex-A53 arch. NEON (SIMD) enabled. CRC32, Crypto (AES/SHA1/SHA2) hardware accelerated.
-    * **ZRAM 512MB:** Swap on compressed RAM with ZSTD compression to minimize flash wear on high memory pressure (like for huge Adblock lists).
+    * **[CPU Pining](files/etc/init.d/smp_affinity):** CPU0 for generic tasks. Ethernet & Crypto on CPU1. WiFi on CPU2. NSS Queue in CPU1+CPU3. 
+    * **Kernel tweaks:** Specific for Cortex-A53 arch. NEON (SIMD) enabled. CRC32, Crypto (AES/SHA1/SHA2) hardware accelerated.
+    * **ZRAM 512MB:** Swap on compressed RAM with LZ4 compression to minimize flash wear on high memory pressure (like for huge AdBlock lists).  
 
 * **Networking**
     * **`10.0.0.0`:** Home Network. With `odhcpd` for superior IPv6 management, `unbound` for secure private/secure DNS handling.
@@ -173,20 +174,27 @@ No, mostly because you will need Docker/Podman or [`chroot`](https://openwrt.org
 
 Remove your DHCP static leases from `etc/config/dhcp` (`Network → DHCP → Leases`) and restart `odhcpd` (`service odhcpd restart`). If it doesn't fail, then **ensure all your static leases have a valid MAC address**. Use `02:xx:xx:xx:xx:xx` as placeholder if necessary. 
 
-* **My super-duper network saturates de device and hogs. What can I do?**
+* **I'm a heavy VPN user. What can I do for better performance?**
 
-Buy bigger router? If that's not your option, you can try splitting NSS queues in two cores instead of just CPU3 by enabling a part of the init script:
+Get a bigger router? Apart from that, not much. You won't get 1Gbps+ speeds due to [NSS currently not handling this kind of traffic natively](https://github.com/qosmio/openwrt-ipq?tab=readme-ov-file#nss-support-matrix):
+
+- TLS/DTLS is not available for NSS firmware 11.4-12.5, required for OpenVPN.
+- IPSEC is not available for NSS firmware 11.4-12.5, required for WireGuard (Tailscale and Headscale).
+- NSS offloading is not compatible with user-space load, like ZeroTier.
+
+The only resort is to move your VPN processes to the same core handled by NSS to keep them close to the CPU cache.
+
+Start the `/etc/init.d/smp-affinity-vpn` service to apply the changes, and restart the network. It will move the encryption engine and the processes to CPU3.
 
 ```shell
-touch /etc/smp_affinity_split
-/etc/init.d/smp_affinity start
+/etc/init.d/smp-affinity-vpn start && /etc/init.d/smp-affinity-vpn enable && /etc/init.d/network restart
 ```
 
-The first line enables split affinity, the second applies it. Since this run at startup, the change is permanent until the file ceases to exist.  
+To disable this, just start the standard `spm-affinity` service, disable the vpn-related service and restart the network.
 
-> [!NOTE]
-> 
-> This file doesn't survive an upgrade. When upgrading, you will need to create the file again. This is because if IRQ changes, the script does not boot-loop the device.
+```shell
+/etc/init.d/smp-affinity start && /etc/init.d/smp-affinity-vpn disable && /etc/init.d/network restart
+```
 
 * **Will you keep updated this?**
 

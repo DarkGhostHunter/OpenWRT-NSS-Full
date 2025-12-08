@@ -24,53 +24,62 @@ boot() {
     logger -p notice -t smp_affinity "Running NSS SMP Affinity optimization..."
 
     # --- STRATEGY ---
-    # CPU0 (Mask 1): Reserved for OS, USB, and generic tasks. Keep network OFF this core.
-    # CPU1 (Mask 2): Ethernet (EDMA) & Crypto
+    # CPU0 (Mask 1): Reserved for OS, USB, and generic tasks. Network is OFF this core.
+    # CPU1 (Mask 2): Ethernet (EDMA), Crypto & Secondary NSS Core
     # CPU2 (Mask 4): WiFi (REO/RxDMA)
-    # CPU3 (Mask 8): NSS Queues (The heaviest load)
+    # CPU3 (Mask 8): Primary NSS Core (The heaviest load)
 
-    # 1. Ethernet (EDMA) -> CPU1
+    # 1. Ethernet (EDMA) - Exception path only -> CPU1
     set_affinity 2 "edma"
 
     # 2. Crypto Engine (ce) -> CPU1
     set_affinity 2 "ce[0-9]"
 
     # 3. WiFi Receive Offload (REO/RxDMA) -> CPU2
-    # These are the heavy lifters for WiFi RX
     set_affinity 4 "reo2host"
     set_affinity 4 "rxdma"
     set_affinity 4 "ppdu-end"
 
-    # 4. NSS Queues Logic
-    # Check if the split configuration file exists
-    if [ -f "/etc/smp_affinity_split" ]; then
-        # Load Balancing the secondary NSS Queue
-        # We explicitly find the second nss_queue0 (IRQ 53) and move it to CPU1 (Mask 2)
-        logger -p notice -t smp_affinity "Applying Split NSS Affinity Strategy..."
+    # 4. NSS Queues Dynamic Logic
+    # Finds all nss_queue IRQs, sorts them numerically, and splits them in half.
+    # First half (Core 0) -> CPU3
+    # Second half (Core 1) -> CPU1
+    logger -p notice -t smp_affinity "Applying Split NSS Affinity Strategy (Dynamic Count)..."
 
-        for irq in $(grep -i "nss_queue" /proc/interrupts | awk '{print $1}' | tr -d ':');
-        do
-            # Check if the IRQ number is less than 50 (The first set, usually 43-46)
-            if [ "$irq" -lt 50 ];
-            then
-                 echo "8" > "/proc/irq/$irq/smp_affinity"
-                 logger -p notice -t smp_affinity "  - NSS Queue IRQ $irq pinned to CPU3 (Mask 8)"
-            else
-                 # IRQs 50+ (The second set, usually 53-56) go to CPU1
-                 echo "2" > "/proc/irq/$irq/smp_affinity"
-                 logger -p notice -t smp_affinity "  - NSS Queue IRQ $irq pinned to CPU1 (Mask 2)"
+    # Get all NSS IRQs sorted numerically
+    nss_irqs=$(grep -i "nss_queue" /proc/interrupts | awk '{print $1}' | tr -d ':' | sort -n)
+
+    # Count how many we found
+    total_count=$(echo "$nss_irqs" | wc -w)
+
+    if [ "$total_count" -gt 0 ]; then
+        # Calculate the split point (integer division)
+        # e.g., if 8 queues, split_point is 4.
+        split_point=$((total_count / 2))
+        current_idx=0
+
+        for irq in $nss_irqs; do
+            current_idx=$((current_idx + 1))
+
+            if [ -d "/proc/irq/$irq" ]; then
+                if [ "$current_idx" -le "$split_point" ]; then
+                    # First half goes to CPU3 (Mask 8)
+                    echo "8" > "/proc/irq/$irq/smp_affinity"
+                    logger -p notice -t smp_affinity "  - NSS Core 0 (IRQ $irq) -> CPU3"
+                else
+                    # Second half goes to CPU1 (Mask 2)
+                    echo "2" > "/proc/irq/$irq/smp_affinity"
+                    logger -p notice -t smp_affinity "  - NSS Core 1 (IRQ $irq) -> CPU1"
+                fi
             fi
         done
-        logger -p notice -t smp_affinity "Shared NSS Queue with CPU1."
     else
-        # Default Strategy: NSS Queues -> CPU3
-        # The nss_queue0 is HUGE (500k+ interrupts).
-        # We move these to the last core to keep them isolated.
-        set_affinity 8 "nss_queue"
+        logger -p warn -t smp_affinity "No NSS Queues found to optimize!"
     fi
 
-
+    # 5. NSS Housekeeping (Buffer handling, etc) -> CPU3
+    # Keeps the 'maintenance' work with the Primary Core
     set_affinity 8 "nss_empty"
 
-    logger -p notice -t smp_affinity "NSS SMP Affinity applied."
+    logger -p notice -t smp_affinity "NSS SMP Affinity applied successfully."
 }
