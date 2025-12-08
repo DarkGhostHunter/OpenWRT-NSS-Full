@@ -41,11 +41,33 @@ boot() {
     set_affinity 4 "rxdma"
     set_affinity 4 "ppdu-end"
 
-    # 4. NSS Queues -> CPU3
-    # Your logs show nss_queue0 is HUGE (500k+ interrupts). 
-    # We move these to the last core to keep them isolated.
-    set_affinity 8 "nss_queue"
-    set_affinity 8 "nss_empty"
+    # 4. NSS Queues Logic
+    # Check if the split configuration file exists
+    if [ -f "/etc/smp_affinity_split" ]; then
+        # Load Balancing the secondary NSS Queue
+        # We explicitly find the second nss_queue0 (IRQ 53) and move it to CPU1 (Mask 2)
+        logger -p notice -t smp_affinity "Applying Split NSS Affinity Strategy..."
+
+        for irq in $(grep -i "nss_queue" /proc/interrupts | awk '{print $1}' | tr -d ':');
+        do
+            # Check if the IRQ number is less than 50 (The first set, usually 43-46)
+            if [ "$irq" -lt 50 ];
+            then
+                 echo "8" > "/proc/irq/$irq/smp_affinity"
+                 logger -p notice -t smp_affinity "  - NSS Queue IRQ $irq pinned to CPU3 (Mask 8)"
+            else
+                 # IRQs 50+ (The second set, usually 53-56) go to CPU1
+                 echo "2" > "/proc/irq/$irq/smp_affinity"
+                 logger -p notice -t smp_affinity "  - NSS Queue IRQ $irq pinned to CPU1 (Mask 2)"
+            fi
+        done
+        logger -p notice -t smp_affinity "Shared NSS Queue with CPU1."
+    else
+        # Default Strategy: NSS Queues -> CPU3
+        # The nss_queue0 is HUGE (500k+ interrupts).
+        # We move these to the last core to keep them isolated.
+        set_affinity 8 "nss_queue"
+    fi
 
     logger -p notice -t smp_affinity "NSS SMP Affinity applied."
 }

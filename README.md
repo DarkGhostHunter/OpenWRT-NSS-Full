@@ -12,8 +12,7 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
 
 * **Performance**
     * **NSS enabled:** Offloads network to custom hardware, less CPU usage.
-    * **[CPU Pining](files/etc/init.d/smp_affinity):** CPU0 for generic tasks. Ethernet & Crypto on CPU1. WiFi on CPU2. NSS Queue in CPU3 (or CPU1+CPU3 for heavy networks).
-    * **Kernel tweaks:** Specific for Cortex-A53 arch. NEON (SIMD) enabled. CRC32, Crypto (AES/SHA1/SHA2) hardware accelerated.
+    * **[CPU Pining](files/etc/init.d/smp_affinity):** CPU0 for generic tasks. Ethernet & Crypto on CPU1. WiFi on CPU2. NSS Queue in CPU3 (or CPU1+CPU3 for heavy networks).    * **Kernel tweaks:** Specific for Cortex-A53 arch. NEON (SIMD) enabled. CRC32, Crypto (AES/SHA1/SHA2) hardware accelerated.
     * **ZRAM 512MB:** Swap on compressed RAM with ZSTD compression to minimize flash wear on high memory pressure (like for huge Adblock lists).
 
 * **Networking**
@@ -176,14 +175,18 @@ Remove your DHCP static leases from `etc/config/dhcp` (`Network → DHCP → Lea
 
 * **My super-duper network saturates de device and hogs. What can I do?**
 
-Buy bigger router? If that's not your option, you can try splitting NSS queues in two cores instead of just CPU3 by enabling the script:
+Buy bigger router? If that's not your option, you can try splitting NSS queues in two cores instead of just CPU3 by enabling a part of the init script:
 
 ```shell
-/etc/init.d/smp_affinity_split start
-/etc/init.d/smp_affinity_split enable
+touch /etc/smp_affinity_split
+/etc/init.d/smp_affinity start
 ```
 
-The first line applies the affinity immediately, and the second makes it to run on boot.
+The first line enables split affinity, the second applies it. Since this run at startup, the change is permanent until the file ceases to exist.  
+
+> [!NOTE]
+> 
+> This file doesn't survive an upgrade. When upgrading, you will need to create the file again. This is because if IRQ changes, the script does not boot-loop the device.
 
 * **Will you keep updated this?**
 
