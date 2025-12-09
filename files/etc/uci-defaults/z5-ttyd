@@ -8,7 +8,7 @@ if /usr/bin/is-default-config ttyd; then
 delete ttyd.@ttyd[0]
 
 add ttyd ttyd
-set ttyd.@ttyd[0].enabled='0'
+set ttyd.@ttyd[0].enable='0'
 set ttyd.@ttyd[0].command='/bin/login'
 set ttyd.@ttyd[0].port='7681'
 set ttyd.@ttyd[0].interface='@lan'
@@ -16,13 +16,14 @@ set ttyd.@ttyd[0].debug='7'
 set ttyd.@ttyd[0].once='1'
 
 add ttyd ttyd
-set ttyd.@ttyd[1].enabled='1'
+set ttyd.@ttyd[1].enable='1'
 set ttyd.@ttyd[1].command='/usr/libexec/ttyd-btop'
 set ttyd.@ttyd[1].port='7682'
 set ttyd.@ttyd[1].uid='65534'
 set ttyd.@ttyd[1].gid='65534'
 set ttyd.@ttyd[1].interface='@lan'
-set ttyd.@ttyd[1].client_option='title=Statistics'
+set ttyd.@ttyd[1].debug='3'
+add_list ttyd.@ttyd[1].client_option='titleFixed=Statistics'
 
 commit ttyd
 EOF
