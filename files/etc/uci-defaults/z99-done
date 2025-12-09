@@ -1,15 +1,5 @@
 #!/bin/sh
 
-# 1. Enable SMP Affinity
-if [ -x /etc/init.d/smp_affinity ]; then
-    /etc/init.d/smp_affinity enable
-fi
-
-# 2. Enable unbound certificate fix
-if [ -x /etc/init.d/unbound_cert_fix ]; then
-    /etc/init.d/unbound_cert_fix enable
-fi
-
 logger -p notice -t luci-defaults "First boot setup complete."
 
 # --- MARK AS FIRST BOOT DONE ---

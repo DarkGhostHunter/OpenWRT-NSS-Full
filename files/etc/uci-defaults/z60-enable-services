@@ -1,0 +1,20 @@
+#!/bin/sh
+
+# ------------------------------------------------------------------
+# Enable selected services
+# ------------------------------------------------------------------
+
+# All these services do not start by default, so we need to do that.
+SERVICES="
+smp_affinity
+unbound_cert_fix
+"
+
+for service in $SERVICES; do
+  # shellcheck disable=SC2086
+  if [ -f /etc/init.d/$service ]; then
+    /etc/init.d/$service enable
+  fi
+done
+
+exit 0
