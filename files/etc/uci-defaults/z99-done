@@ -10,9 +10,6 @@ if [ -x /etc/init.d/unbound_cert_fix ]; then
     /etc/init.d/unbound_cert_fix enable
 fi
 
-# 6. Apply System Control tweaks (sysctl, critical for z70-fix-net-config)
-sysctl -p
-
 logger -p notice -t luci-defaults "First boot setup complete."
 
 # --- MARK AS FIRST BOOT DONE ---
