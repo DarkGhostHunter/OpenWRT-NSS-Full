@@ -22,7 +22,7 @@ set ttyd.@ttyd[1].port='7682'
 set ttyd.@ttyd[1].uid='65534'
 set ttyd.@ttyd[1].gid='65534'
 set ttyd.@ttyd[1].interface='@lan'
-set ttyd.@ttyd[1].client_option='title=System Status'
+set ttyd.@ttyd[1].client_option='title=Statistics'
 
 commit ttyd
 EOF

@@ -192,16 +192,16 @@ Start the `/etc/init.d/smp_affinity_vpn` service to apply the changes, and resta
 /etc/init.d/network restart
 ```
 
-To disable this, just start the standard `spm_affinity` service, disable the vpn-related service and restart the network.
+To disable this, just restart the standard `spm_affinity` service to go back to the normal CPU pinning, disable the vpn-related service and restart the network.
 
 ```shell
-/etc/init.d/spm_affinity start
+/etc/init.d/spm_affinity restart
 /etc/init.d/smp_affinity_vpn disable
 /etc/init.d/network restart
 ```
 
 * **Will you keep updated this?**
 
-Until it hits the next OpenWRT stable release, and then it will stay there until there meaningful performance optimizations for the network stack, which after NSS I don't see meaningful.
+Until it hits the next OpenWRT stable release, and then it will stay there until there meaningful performance optimizations for the network stack, which after NSS I don't see meaningful except for VPN (TLS/DTLS, IPSEC).
 
 So yes, but I don't expect flashing this every month on the Router.
