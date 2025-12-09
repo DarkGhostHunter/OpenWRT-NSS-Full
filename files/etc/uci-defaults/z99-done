@@ -1,53 +1,19 @@
 #!/bin/sh
 
-# --- LOGGING ---
-logger -p notice -t luci-defaults "First boot setup complete. Applying changes live..."
-
-# --- APPLY SETTINGS WITHOUT REBOOT ---
-
-# 1. Reload the UCI configuration (notify procd)
-/sbin/reload_config
-
-# 2. Manually trigger SMP Affinity
-#    Normally this runs at S99 (boot), but since we aren't rebooting,
-#    we trigger it now to balance IRQs.
+# 1. Enable SMP Affinity
 if [ -x /etc/init.d/smp_affinity ]; then
-    /etc/init.d/smp_affinity start
     /etc/init.d/smp_affinity enable
 fi
 
-# 3. Manually apply unbound certificate fix so it can start
+# 2. Enable unbound certificate fix
 if [ -x /etc/init.d/unbound_cert_fix ]; then
-    /etc/init.d/unbound_cert_fix start
     /etc/init.d/unbound_cert_fix enable
-fi
-
-# 4. Restart/Reload Critical Services
-#    Network might flicker, but it won't be a full reboot
-/etc/init.d/network reload
-/etc/init.d/firewall restart
-/etc/init.d/odhcpd reload
-/etc/init.d/unbound restart
-
-# 5. Restart NSS Subsystem (CRITICAL for z80-tweak-nss-ecm tweaks)
-#    z80-tweak-nss-ecm modifies qca-nss-ecm config. We must restart them to
-#    apply the 'acceleration_engine=nss' settings.
-if [ -x /etc/init.d/qca-nss-ecm ]; then
-    # Restart ECM to pick up the disable_gro and engine settings
-    /etc/init.d/qca-nss-ecm restart
-    # Flush current connections so they get picked up by the new engine
-    echo 1 > /sys/kernel/debug/ecm/ecm_db/defunct_all
-fi
-
-if [ -x /etc/init.d/qca-nss-drv ]; then
-    # Restart the NSS Driver so it picks up all changes from affinity
-    /etc/init.d/qca-nss-drv restart
 fi
 
 # 6. Apply System Control tweaks (sysctl, critical for z70-fix-net-config)
 sysctl -p
 
-logger -p notice -t luci-defaults "Live configuration application complete."
+logger -p notice -t luci-defaults "First boot setup complete."
 
 # --- MARK AS FIRST BOOT DONE ---
 touch /etc/first_boot_done
