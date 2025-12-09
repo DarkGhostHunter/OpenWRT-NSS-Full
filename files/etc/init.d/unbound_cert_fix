@@ -6,6 +6,7 @@ START=18
 UNBOUND_PATH=/var/lib/unbound
 
 start() {
+    logger -p notice -t unbound_cert_fix "Fixing unbound directory paths at ${UNBOUND_PATH}..."
     # 1. Ensure the unbound directory exists (it is often in tmpfs)
     if [ ! -d "$UNBOUND_PATH" ]; then
         mkdir -p $UNBOUND_PATH
@@ -17,17 +18,34 @@ start() {
 
     # 2. Copy the certificate bundle to the chroot location expected by unbound_srv.conf if it does not exists
     if [ -f /etc/ssl/certs/ca-certificates.crt ] && [ ! -f $UNBOUND_PATH/ca-certificates.crt ]; then
+        logger -p notice -t unbound_cert_fix "Copying CA Certificate bundle into unbound workdir path..."
         cp /etc/ssl/certs/ca-certificates.crt $UNBOUND_PATH/ca-certificates.crt
+    else
+        logger -p warn -t unbound_cert_fix "CA Certificate bundle does not exist or already exists on workdir..."
     fi
 
     # Ensure the file is readable by the unbound user
-    chmod 644 $UNBOUND_PATH/ca-certificates.crt
+    if [ -f $UNBOUND_PATH/ca-certificates.crt ]; then
+        logger -p notice -t unbound_cert_fix "Fixing CA Certificate bundle permissions..."
+        chmod 644 $UNBOUND_PATH/ca-certificates.crt
+    else
+        logger -p warn -t unbound_cert_fix "CA Certificate bundle not found in unbound workdir path..."
+    fi
 
     # 3. Only copy root.key if it exists (it might not if we skipped anchor)
     if [ -f /etc/unbound/root.key ] && [ ! -f $UNBOUND_PATH/root.key ]; then
+        logger -p notice -t unbound_cert_fix "Copying [root.key] into unbound workdir path..."
         cp -p /etc/unbound/root.key $UNBOUND_PATH/root.key
+    else
+        logger -p warn -t unbound_cert_fix "Root key file does not exist or already exists on workdir..."
     fi
 
     # Ensure the file is readable by the unbound user
-    chmod 644 $UNBOUND_PATH/root.key
+    if [ -f $UNBOUND_PATH/root.key ]; then
+        logger -p notice -t unbound_cert_fix "Fixing Root key permissions..."
+        chmod 644 $UNBOUND_PATH/root.key
+    else
+        logger -p warn -t unbound_cert_fix "Root key not found in unbound workdir path..."
+        chmod 644 $UNBOUND_PATH/root.key
+    fi
 }
