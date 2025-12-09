@@ -6,6 +6,7 @@
 
 # All these services require configuration, except for sysntpd (the
 # system native NTP Client) because we're using chrony instead.
+# Also, these makes the server not boot-loop if the conf is bad
 SERVICES="
 plexmediaserver
 zerotier
