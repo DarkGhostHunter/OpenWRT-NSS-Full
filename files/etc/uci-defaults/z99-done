@@ -1,8 +1,12 @@
 #!/bin/sh
 
-logger -p notice -t luci-defaults "First boot setup complete."
+FIRST_BOOT_LOG=/etc/first_boot.log.lzma
+
+logger -p notice -y luci-defaults "Saving first boot log into ${FIRST_BOOT_LOG}"
+logread | lzma > $FIRST_BOOT_LOG
 
 # --- MARK AS FIRST BOOT DONE ---
+logger -p notice -t luci-defaults "First boot setup complete."
 touch /etc/first_boot_done
 
 exit 0
