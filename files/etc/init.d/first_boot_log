@@ -1,0 +1,34 @@
+#!/bin/sh /etc/rc.common
+# Capture first boot logs until explicitly stopped
+
+START=01
+STOP=99
+
+LOGFILE="/etc/first-boot-$(date +%Y%m%d-%H%M%S).log"
+PIDFILE="/var/run/first_boot_log.pid"
+FLAGFILE="/etc/first_boot_done"
+
+start() {
+    # Only run if first boot flag does not exist
+    if [ -f "$FLAGFILE" ]; then
+        logger -p notice -t first_boot_log "First boot already done, skipping first bot log."
+        return 0
+    fi
+
+    # Start continuous logging in background
+    logread -f | lzma > "$LOGFILE.lzma" &
+    echo $! > "$PIDFILE"
+
+    logger -p notice -t first_boot_log "Boot logging started, PID $(cat $PIDFILE)"
+}
+
+stop() {
+    # Stop background logging process
+    if [ -f "$PIDFILE" ]; then
+        logger -p notice -t first_boot_log "Boot logging stopping..."
+        kill "$(cat $PIDFILE)" 2>/dev/null
+        rm -f "$PIDFILE"
+
+        logger -p notice -t first_boot_log "Boot logging stopped."
+    fi
+}
