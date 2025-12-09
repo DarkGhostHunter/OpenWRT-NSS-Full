@@ -2,28 +2,21 @@
 SOCKET="/tmp/ttyd_btop.sock"
 export XDG_CONFIG_HOME=/etc/btop-config
 
-# 1. Restore Environment Variables (Critical for btop/tmux)
+# 1. Restore Environment Variables
 export LC_ALL=C.UTF-8
 export LANG=C.UTF-8
 export TERM=xterm-256color
 
-# 2. Force tmux to use a valid shell
-# The 'nobody' user usually has /bin/false, which crashes tmux.
-# We create a temp config to override this.
+# 2. Force tmux settings (Shell + Title Fix)
 TMUX_CONF="/tmp/tmux_btop.conf"
-echo "set-option -g default-shell /bin/sh" > "$TMUX_CONF"
+{
+    # Force the shell to /bin/sh to prevent crashes
+    echo "set-option -g default-shell /bin/sh"
+} > "$TMUX_CONF"
 
-# 3. Try to attach silently
-# We redirect stderr to /dev/null so "no sessions" doesn't appear in the browser.
-/usr/bin/tmux -S "$SOCKET" -f "$TMUX_CONF" -u -2 attach-session -t system_stats 2>/dev/null
-
-# 4. If attach failed (session doesn't exist), create a new one
-if [ $? -ne 0 ]; then
-    # Clean up any stale socket
+# 3. If attach failed, create a new one
+if ! /usr/bin/tmux -S "$SOCKET" -f "$TMUX_CONF" -u -2 attach-session -t system_stats 2>/dev/null; then
     rm -f "$SOCKET"
-
-    # Create NEW session and replace this script process with tmux (exec).
-    # We pass the command explicitly.
     exec /usr/bin/tmux -S "$SOCKET" -f "$TMUX_CONF" -u -2 \
          new-session -s system_stats '/usr/bin/btop --force-utf' \; \
          set-option -g destroy-unattached on
