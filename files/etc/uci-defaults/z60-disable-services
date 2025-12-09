@@ -16,13 +16,13 @@ sysntpd
 minidlna
 watchcat
 netdata
+smp_affinity_vpn
 "
 
 for service in $SERVICES; do
   # shellcheck disable=SC2086
   if [ -f /etc/init.d/$service ]; then
     /etc/init.d/$service disable
-    /etc/init.d/$service stop
   fi
 done
 
