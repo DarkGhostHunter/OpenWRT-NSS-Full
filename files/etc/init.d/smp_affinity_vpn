@@ -1,0 +1,25 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+# Helper: Set IRQ Affinity
+set_irq_affinity() {
+    local mask="$1"
+    local pattern="$2"
+    for irq in $(grep -i "$pattern" /proc/interrupts | awk '{print $1}' | tr -d ':'); do
+        if [ -d "/proc/irq/$irq" ]; then
+            echo "$mask" > "/proc/irq/$irq/smp_affinity"
+        fi
+    done
+}
+
+start() {
+    # Only runs if the user explicitly enabled the service
+    logger -p notice -t sm_affinity_vpn "Service started: Moving Crypto Hardware (ce) interrupts to CPU3..."
+    set_irq_affinity 8 "ce[0-9]"
+}
+
+stop() {
+    # We leave it as-is to avoid disrupting active connections
+    true
+}

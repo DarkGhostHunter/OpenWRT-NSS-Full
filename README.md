@@ -182,18 +182,22 @@ Get a bigger router? Apart from that, not much. You won't get 1Gbps+ speeds due 
 - IPSEC is not available for NSS firmware 11.4-12.5, required for WireGuard (Tailscale and Headscale).
 - NSS offloading is not compatible with user-space load, like ZeroTier.
 
-The only resort is to move your VPN processes to the same core handled by NSS to keep them close to the CPU cache.
+The only resort is to move your VPN processes to the same core handled by NSS to keep them close to the CPU cache for latency.
 
-Start the `/etc/init.d/smp-affinity-vpn` service to apply the changes, and restart the network. It will move the encryption engine and the processes to CPU3.
+Start the `/etc/init.d/smp_affinity_vpn` service to apply the changes, and restart the network. It will move the encryption engine and the processes to CPU3.
 
 ```shell
-/etc/init.d/smp-affinity-vpn start && /etc/init.d/smp-affinity-vpn enable && /etc/init.d/network restart
+/etc/init.d/smp_affinity_vpn start
+/etc/init.d/smp_affinity_vpn enable
+/etc/init.d/network restart
 ```
 
-To disable this, just start the standard `spm-affinity` service, disable the vpn-related service and restart the network.
+To disable this, just start the standard `spm_affinity` service, disable the vpn-related service and restart the network.
 
 ```shell
-/etc/init.d/smp-affinity start && /etc/init.d/smp-affinity-vpn disable && /etc/init.d/network restart
+/etc/init.d/spm_affinity start
+/etc/init.d/smp_affinity_vpn disable
+/etc/init.d/network restart
 ```
 
 * **Will you keep updated this?**
