@@ -15,6 +15,7 @@ banip
 sysntpd
 minidlna
 watchcat
+netdata
 "
 
 for service in $SERVICES; do
