@@ -13,15 +13,16 @@ set ttyd.@ttyd[0].command='/bin/login'
 set ttyd.@ttyd[0].port='7681'
 set ttyd.@ttyd[0].interface='@lan'
 set ttyd.@ttyd[0].debug='7'
+set ttyd.@ttyd[0].once='1'
 
 add ttyd ttyd
 set ttyd.@ttyd[1].enabled='1'
-set ttyd.@ttyd[1].command='env LC_ALL=C.UTF-8 /usr/bin/tmux -u -2 new-session -A -s system_stats /usr/bin/btop --force-utf'
+set ttyd.@ttyd[1].command='/usr/libexec/ttyd-btop'
 set ttyd.@ttyd[1].port='7682'
 set ttyd.@ttyd[1].uid='65534'
-set ttyd.@ttyd[1].guid='65534'
+set ttyd.@ttyd[1].gid='65534'
 set ttyd.@ttyd[1].interface='@lan'
-set ttyd.@ttyd[1].client_option='title=Statsitics'
+set ttyd.@ttyd[1].client_option='title=System Status'
 
 commit ttyd
 EOF

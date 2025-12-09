@@ -1,0 +1,12 @@
+#!/bin/sh
+# This script starts tmux and ensures it kills the session when the client leaves.
+# We do not need crazy escaping here because it is a real file.
+
+# Check if session exists; if not, create it with auto-destroy enabled
+if ! /usr/bin/tmux has-session -t system_stats 2>/dev/null; then
+  /usr/bin/tmux new-session -d -s system_stats '/usr/bin/btop --force-utf'
+  /usr/bin/tmux set-option -t system_stats destroy-unattached on
+fi
+
+# Attach to the session
+exec /usr/bin/tmux -u -2 attach-session -t system_stats
