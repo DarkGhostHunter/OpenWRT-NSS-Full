@@ -1,6 +1,7 @@
 #!/bin/sh
 
-if /usr/bin/is-default-config ksmbd; then
+# Because ksmbd seems to be weird, we will check if the config is default by its description.
+if [ "$(uci get ksmbd.@globals[0].description)" = 'Ksmbd on OpenWrt' ]; then
 
     touch /etc/config/ksmbd
 
@@ -15,11 +16,36 @@ set ksmbd.@globals[0].description='OpenWrt_WRX36'
 delete ksmbd.@share[0]
 add ksmbd share
 set ksmbd.@share[0]=share
+set ksmbd.@share[0].name='Downloads'
+set ksmbd.@share[0].path='/mnt/sda1/Downloads'
 set ksmbd.@share[0].read_only='no'
 set ksmbd.@share[0].users='SMBUSER'
 set ksmbd.@share[0].guest_ok='no'
 set ksmbd.@share[0].create_mask='0666'
 set ksmbd.@share[0].dir_mask='0777'
+
+delete ksmbd.@share[1]
+add ksmbd share
+set ksmbd.@share[1]=share
+set ksmbd.@share[1].name='Shared'
+set ksmbd.@share[1].path='/mnt/sda1/Shared'
+set ksmbd.@share[1].read_only='no'
+set ksmbd.@share[1].users='SMBUSER'
+set ksmbd.@share[1].guest_ok='yes'
+set ksmbd.@share[1].hide_dot_files='no'
+set ksmbd.@share[1].create_mask='0666'
+set ksmbd.@share[1].dir_mask='0777'
+
+delete ksmbd.@share[2]
+add ksmbd share
+set ksmbd.@share[2]=share
+set ksmbd.@share[2].name='Media'
+set ksmbd.@share[2].path='/mnt/sda1/Media'
+set ksmbd.@share[2].read_only='no'
+set ksmbd.@share[2].users='SMBUSER'
+set ksmbd.@share[2].guest_ok='yes'
+set ksmbd.@share[2].create_mask='0666'
+set ksmbd.@share[2].dir_mask='0777'
 
 commit ksmbd
 EOF
