@@ -35,7 +35,7 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
     * **[Easy SMB shares](files/etc/ksmbd/ksmbd.conf.template.example):** Robust, easy to use `ksmbd` template to mount your SSD/HDD/NVMe. Hardcoded `SMBUSER:SMBPASSWORD`.
     * **[BanIP](https://openwrt.org/docs/guide-user/services/banip):** Want to block an IP, a Country, a DNS-over-HTTPS or a social network? Now you can, but you're on your own for the proper instructions.
     * **[TTYD](https://tsl0922.github.io/ttyd/) + [btop](https://github.com/aristocratos/btop):** Show btop statistics at port `7682` with single unique process (great if you don't want to use netstat) with zero permissions (`nobody:nogroup`). 
-    * **[IT tools](https://it-tools.tech/):** Because you always need it even when the Internet goes down. Accessible at [`http://10.0.0.1/it-tools`](http://10.0.0.1/it-tools). Optional, requires to run [install-it-tools.sh](install-it-tools.sh).
+    * **[IT tools](https://it-tools.tech/):** Because you always need it even when the Internet goes down. Accessible at [`http://10.0.0.1:8080`](http://10.0.0.1:8080). Optional.
 
 > [!NOTE]
 > 
@@ -115,9 +115,25 @@ Usteer already has some good-for-anything defaults about minimum signal strength
 > 
 > As a rule of thumb, use wider channels for 5GHz if your _Channel Analysis_ (under _Status_) shows very far neighbors with very low noise. Otherwise, stick with a narrower channel for better reach.   
 
+### 2. Add IT Tools
+
+A handy tool site I always use is [IT Tools](https://it-tools.tech/). Of course, it won't work if the Internet goes down, so I included a small script that downloads the latest version and makes it available at port `:8080` in your router for _those cases_. Just call `install-it-tools` and then start and enable the service that mounts the image into the embedded web server (`uhttpd`).
+
+```shell
+install-it-tools
+/etc/init.d/mount-it-tools start
+/etc/init.d/mount-it-tools enable
+```
+
+The `uhttpd` rules are for IT Tools [already added](files/etc/uci-defaults/z0-uhttpd), so apart from that there is nothing you need to do.
+
+> [!WARNING]
+> 
+> IT Tools does not support being hosted in a subdirectory, like `10.0.0.1/it-tools`, due to how it's built. That's why it uses a custom port rather than a directory.
+
 ### 2. Configure your firewall
 
-The [`configure-firewall`](files/usr/bin/configure-firewall) script disables the firewall entirely, allows OpenWRT management accessible from `wan` (outside), or restores the defaults (enabled).
+The [`configure-firewall`](files/usr/bin/configure-firewall) script disables the firewall entirely, allows OpenWRT management and ports accessible from `wan` (outside), or restores the defaults (enabled).
 
 If your OpenWRT router sits as a Dumb AP, you will probably want to access the management from the same network, so run this script first.
 
