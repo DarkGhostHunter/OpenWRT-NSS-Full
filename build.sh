@@ -549,6 +549,12 @@ echo "CONFIG_KERNEL_ZRAM_BACKEND_ZSTD=y" >> .config
 sed -i '/CONFIG_KERNEL_ZRAM_DEF_COMP_LZ4/d' .config
 echo "CONFIG_KERNEL_ZRAM_DEF_COMP_LZ4=y" >> .config
 
+# 7.4 Add LZ4 and ZTD filesystem mounts to the kernel
+sed -i '/CONFIG_KERNEL_SQUASHFS_LZ4/d' .config
+echo "CONFIG_KERNEL_SQUASHFS_LZ4=y" >> .config
+sed -i '/CONFIG_KERNEL_SQUASHFS_ZSTD/d' .config
+echo "CONFIG_KERNEL_SQUASHFS_ZSTD=y" >> .config
+
 
 if command -v ccache &> /dev/null; then
     mkdir -p staging_dir/host/bin
@@ -636,23 +642,11 @@ fi
 
 # 9.1 Fix: Patch ksmbd
 KSMBD_INIT=$(find package -name "ksmbd.init" 2>/dev/null | head -n 1)
-if [ -n "$KSMBD_INIT" ]; then
-    if ! grep -q "REMOVE SYSTEM SHARES" "$KSMBD_INIT"; then
-        cat << 'EOF' > ksmbd_fix.txt
-    # --- FIX: REMOVE SYSTEM SHARES ---
-    # Ensure the config file exists before editing
-    if [ -f /var/etc/ksmbd/ksmbd.conf ]; then
-        # Delete the [ubi0_2] block and lines following it
-        sed -i '/\[ubi0_2\]/,/^$/d' /var/etc/ksmbd/ksmbd.conf
-        # Delete the [ubiblock0_1] block and lines following it
-        sed -i '/\[ubiblock0_1\]/,/^$/d' /var/etc/ksmbd/ksmbd.conf
-    fi
-    # ---------------------------------
-EOF
-        awk 'NR==FNR{fix[n++]=$0; next} /procd_open_instance/{for(i=0;i<n;i++) print fix[i]} 1' ksmbd_fix.txt "$KSMBD_INIT" > "$KSMBD_INIT.tmp" && mv "$KSMBD_INIT.tmp" "$KSMBD_INIT"
-        rm ksmbd_fix.txt
-        log "Applied ksmbd patch to $KSMBD_INIT"
-    fi
+if [ -n "$KSMBD_INIT" ] && ! grep -q 'case "$name" in ubi*) return 0 ;; esac' "$KSMBD_INIT"; then
+    sed -i '/config_get_sane force_directory_mode/a \
+    \tcase "$name" in ubi*) return 0 ;; esac' $KSMBD_INIT
+
+    log "Applied ksmbd patch to $KSMBD_INIT"
 fi
 
 # 10. Disable Global LTO/MOLD
