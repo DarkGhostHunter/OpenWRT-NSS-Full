@@ -27,4 +27,10 @@ for service in $SERVICES; do
   fi
 done
 
+# Additional check: if the it-tools file does not exist, also disable it
+if [ ! -f /srv/it-tools.squashfs ] && [ -f /etc/init.d/it-tools ]; then
+  /etc/init.d/it-tools disable
+else
+  /etc/init.d/it-tools enable
+fi
 exit 0

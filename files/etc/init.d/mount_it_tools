@@ -1,0 +1,55 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+STOP=01
+
+APP_NAME="it-tools"
+MOUNT_POINT="/www/tools"
+IMAGE_FILE="/srv/it-tools.squashfs"
+
+log() {
+    logger -t "$APP_NAME" "$1"
+}
+
+start() {
+    # Check if the image exists
+    if [ ! -f "$IMAGE_FILE" ]; then
+        logger -p error -t mount_it_tools "Error: $IMAGE_FILE not found."
+        return 1
+    fi
+
+    # Create mount point if it doesn't exist
+    if [ ! -d "$MOUNT_POINT" ]; then
+        mkdir -p "$MOUNT_POINT"
+    fi
+
+    # Check if already mounted
+    if mount | grep -q "$MOUNT_POINT"; then
+        logger -p error -t mount_it_tools "Already mounted."
+        return 0
+    fi
+
+    logger -p error -t mount_it_tools "Mounting..."
+
+    # Mount loopback with read-only access
+    if mount -t squashfs -o loop,ro "$IMAGE_FILE" "$MOUNT_POINT"; then
+        logger -p error -t mount_it_tools "Mounted successfully at $MOUNT_POINT"
+    else
+        logger -p error -t mount_it_tools "Failed to mount"
+        return 1
+    fi
+}
+
+stop() {
+    if mount | grep -q "$MOUNT_POINT"; then
+        logger -p error -t mount_it_tools "Unmounting..."
+        umount "$MOUNT_POINT"
+    else
+        logger -p error -t mount_it_tools "Not mounted."
+    fi
+}
+
+restart() {
+    stop
+    start
+}
