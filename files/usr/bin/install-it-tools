@@ -1,0 +1,125 @@
+#!/bin/sh
+
+# Configuration
+REPO="CorentinTh/it-tools"
+# Using /srv to match the service file paths
+STORAGE_DIR="/srv"
+IMAGE_FILE="$STORAGE_DIR/it-tools.squashfs"
+VERSION_FILE="$STORAGE_DIR/it-tools.version"
+WORK_DIR="/tmp/it-tools-install"
+
+# Setup colors for output
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+log() {
+    echo "${GREEN}[IT-Tools]${NC} $1"
+}
+
+err() {
+    echo "${RED}[Error]${NC} $1"
+}
+
+# Check for required dependencies
+for cmd in wget jq unzip mksquashfs; do
+    if ! command -v $cmd >/dev/null; then
+        err "Missing dependency: $cmd"
+        echo "Please install it using: opkg update && opkg install $cmd"
+        # Note: mksquashfs is often in package 'squashfs-tools-mksquashfs'
+        exit 1
+    fi
+done
+
+# Ensure storage directory exists
+if [ ! -d "$STORAGE_DIR" ]; then
+    mkdir -p "$STORAGE_DIR"
+fi
+
+log "Checking for updates..."
+
+# Fetch latest release data using wget
+API_URL="https://api.github.com/repos/$REPO/releases/latest"
+RELEASE_JSON=$(wget -qO- --no-check-certificate "$API_URL")
+
+if [ -z "$RELEASE_JSON" ]; then
+    err "Failed to fetch release info from GitHub."
+    exit 1
+fi
+
+# Extract version and download URL
+LATEST_VERSION=$(echo "$RELEASE_JSON" | jq -r .tag_name)
+DOWNLOAD_URL=$(echo "$RELEASE_JSON" | jq -r '.assets[] | select(.name | endswith(".zip")) | select(.name | contains("source") | not) | .browser_download_url' | head -n 1)
+
+if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
+    err "Could not find a valid zip asset in the latest release."
+    exit 1
+fi
+
+# Check installed version
+CURRENT_VERSION="none"
+if [ -f "$VERSION_FILE" ]; then
+    CURRENT_VERSION=$(cat "$VERSION_FILE")
+fi
+
+# Determine if action is needed
+if [ "$LATEST_VERSION" = "$CURRENT_VERSION" ] && [ -f "$IMAGE_FILE" ]; then
+    log "Already up to date ($CURRENT_VERSION). Exiting."
+    exit 0
+fi
+
+if [ "$CURRENT_VERSION" = "none" ]; then
+    log "Installing version $LATEST_VERSION..."
+else
+    log "Updating from $CURRENT_VERSION to $LATEST_VERSION..."
+fi
+
+# Prepare temporary workspace (in RAM)
+rm -rf "$WORK_DIR"
+mkdir -p "$WORK_DIR"
+
+# Download
+log "Downloading archive..."
+wget -qO "$WORK_DIR/it-tools.zip" --no-check-certificate "$DOWNLOAD_URL"
+
+# Unzip
+log "Extracting..."
+unzip -q "$WORK_DIR/it-tools.zip" -d "$WORK_DIR/extracted"
+
+# Find web root (handle potential subfolders in zip)
+WEB_ROOT=$(find "$WORK_DIR/extracted" -name "index.html" -exec dirname {} \; | head -n 1)
+
+if [ -z "$WEB_ROOT" ]; then
+    err "Could not find index.html in extracted files."
+    rm -rf "$WORK_DIR"
+    exit 1
+fi
+
+log "Building SquashFS image (LZ4)..."
+
+# mksquashfs options for OpenWRT/Static Site:
+# -comp lz4: Fast decompression, low CPU usage (ideal for routers)
+# -b 256k: Moderate block size (balances compression ratio vs RAM usage during read)
+# -no-xattrs: We don't need extended attributes for a web root
+# -all-root: Force all files to be owned by root
+# -noappend: Overwrite destination file if it exists
+if mksquashfs "$WEB_ROOT" "$IMAGE_FILE" -comp lz4 -b 256k -no-xattrs -all-root -noappend -no-progress; then
+    # Update version file
+    echo "$LATEST_VERSION" > "$VERSION_FILE"
+    log "Successfully installed to $IMAGE_FILE"
+
+    # Reload service if it is running to pick up changes immediately
+    if [ -f "/etc/init.d/mount_it_tools" ] && /etc/init.d/mount_it_tools enabled; then
+        log "Restarting mount-it-tools service..."
+        /etc/init.d/mount_it_tools restart
+    fi
+else
+    err "Failed to create SquashFS image."
+    rm -rf "$WORK_DIR"
+    exit 1
+fi
+
+# Cleanup RAM
+rm -rf "$WORK_DIR"
+log "Done."

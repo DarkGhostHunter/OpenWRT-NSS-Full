@@ -35,6 +35,7 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
     * **[Easy SMB shares](files/etc/ksmbd/ksmbd.conf.template.example):** Robust, easy to use `ksmbd` template to mount your SSD/HDD/NVMe. Hardcoded `SMBUSER:SMBPASSWORD`.
     * **[BanIP](https://openwrt.org/docs/guide-user/services/banip):** Want to block an IP, a Country, a DNS-over-HTTPS or a social network? Now you can, but you're on your own for the proper instructions.
     * **[TTYD](https://tsl0922.github.io/ttyd/) + [btop](https://github.com/aristocratos/btop):** Show btop statistics at port `7682` with single unique process (great if you don't want to use netstat) with zero permissions (`nobody:nogroup`). 
+    * **[IT tools](https://it-tools.tech/):** Because you always need it even when the Internet goes down. Accessible at [`http://10.0.0.1/it-tools`](http://10.0.0.1/it-tools). Optional, requires to run [install-it-tools.sh](install-it-tools.sh).
 
 > [!NOTE]
 > 
