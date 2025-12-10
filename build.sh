@@ -134,7 +134,8 @@ install_dependencies() {
             python3-setuptools rsync swig unzip zlib1g-dev file wget \
             python3 python3-dev python3-pip libpython3-dev curl libelf-dev \
             xsltproc libxml-parser-perl patch diffutils findutils quilt zstd \
-            libprotobuf-c1 libprotobuf-c-dev protobuf-c-compiler ccache
+            libprotobuf-c1 libprotobuf-c-dev protobuf-c-compiler ccache \
+            jq squashfs-tools
     else
         warn "Offline: Skipping dependency install. Ensure environment is prepared."
     fi

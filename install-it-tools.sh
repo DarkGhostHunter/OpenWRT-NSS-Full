@@ -87,8 +87,8 @@ echo -e "${GREEN}Creating SquashFS image at $IMAGE_PATH...${NC}"
 # Remove old image if exists
 [ -f "$IMAGE_PATH" ] && rm "$IMAGE_PATH"
 
-# mksquashfs with zstd compression
-mksquashfs "$SITE_ROOT" "$IMAGE_PATH" -comp zstd -Xcompression-level 22 -all-root -no-progress
+# mksquashfs with lz4 compression
+mksquashfs "$SITE_ROOT" "$IMAGE_PATH" -comp lz4 -b 1M -Xhc -all-root -no-progress
 
 # Update version file
 echo "$LATEST_VERSION" > "$VERSION_FILE"
