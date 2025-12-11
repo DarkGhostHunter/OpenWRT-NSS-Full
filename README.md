@@ -2,7 +2,7 @@
 
 This script builds OpenWRT from scratch for Dynalink DL-WRX36, with Network SubSystem, plus many Quality-of-Life packages and fixes.
 
-It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds), but uses the up-to-date [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openwrt). It was created mashing up a lot of AI like Claude, Grok, Gemini, Copilot and Mistral, a lot of trial-and-error, and credits. Lot of credits.
+It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds)[²](https://forum.openwrt.org/t/full-featured-custom-build-for-dynalink-dl-wrx36-ax3600/180168), but uses the up-to-date [Agustin Lorenzo NSS Build](https://github.com/AgustinLorenzo/openwrt). It was created mashing up a lot of AI like Claude, Grok, Gemini, Copilot and Mistral, a lot of trial-and-error, and credits. Lot of credits.
 
 > [!WARNING]
 >
@@ -187,10 +187,6 @@ If you're using this router behind a network as a bridge or DNS is handled elsew
 It's because [Watchcat](files/etc/uci-defaults/z4-watchcat) default configuration. It will restart the **WAN interface** there is no Internet connection for 15 minutes.
 
 If you are offline, disable it through the LUCI panel, via SSH (`/etc/init.d/watchcat disable && /etc/init.d/watchcat stop`) or just delete the rules.
-
-* **You're creating a kernel with the [RDMA](https://en.wikipedia.org/wiki/Remote_direct_memory_access). Are you sure?**
-
-No, I'm not sure, but doing so doesn't bring the router down, so probably it has it hidden somewhere? Well, it works.
 
 * **Can you include Jellyfin instead of Plex?**
 

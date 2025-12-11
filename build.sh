@@ -680,10 +680,10 @@ KERNEL_BUILD_DIR=$(find build_dir/target* -maxdepth 2 -name "linux-*" -type d | 
 if [ -n "$KERNEL_BUILD_DIR" ]; then
     ARM64_MAKEFILE="${KERNEL_BUILD_DIR}/arch/arm64/Makefile"
     if [ -f "$ARM64_MAKEFILE" ]; then
-        sed -i 's/^asm-arch := .*/asm-arch := armv8-a+crc+crypto+rdma/' "$ARM64_MAKEFILE"
-        if ! grep -q "cortex-a53+crc+crypto+rdma" "$ARM64_MAKEFILE"; then
-             echo "KBUILD_AFLAGS += -Wa,-mcpu=cortex-a53+crc+crypto+rdma" >> "$ARM64_MAKEFILE"
-             echo "KBUILD_CFLAGS += -Wa,-mcpu=cortex-a53+crc+crypto+rdma" >> "$ARM64_MAKEFILE"
+        sed -i 's/^asm-arch := .*/asm-arch := armv8-a+crc+crypto/' "$ARM64_MAKEFILE"
+        if ! grep -q "cortex-a53+crc+crypto" "$ARM64_MAKEFILE"; then
+             echo "KBUILD_AFLAGS += -Wa,-mcpu=cortex-a53+crc+crypto" >> "$ARM64_MAKEFILE"
+             echo "KBUILD_CFLAGS += -Wa,-mcpu=cortex-a53+crc+crypto" >> "$ARM64_MAKEFILE"
         fi
     fi
 fi
