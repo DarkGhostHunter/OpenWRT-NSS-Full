@@ -1,0 +1,9 @@
+#!/bin/sh
+
+# Avahi starts at 61. Since it starts too early, it does not pick up the
+# server hostname. We will force avahi to run last (99)
+/etc/init.d/avahi-daemon disable
+sed -i 's/^START=[0-9]\+/START=99/' /etc/init.d/avahi-daemon
+/etc/init.d/avahi-daemon enable
+
+exit 0
