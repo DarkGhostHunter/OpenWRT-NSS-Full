@@ -140,13 +140,13 @@ The script will download, repack them into SquashFS and mount it into `uhttpd` w
 > 
 > Webapps require a mounted external storage at `/mnt/sda1`, since these install at `/mnt/sda1/.webapps`.
 
-### 2. Configure your firewall
+### 4. Configure your firewall
 
 The [`configure-firewall`](files/usr/bin/configure-firewall) script disables the firewall entirely, allows OpenWRT management and ports accessible from `wan` (outside), or restores the defaults (enabled).
 
 If your OpenWRT router sits as a Dumb AP, you will probably want to access the management from the same network, so run this script first.
 
-### 3. Configure your Interfaces
+### 5. Configure your Interfaces
 
 The [`configure-interface`](files/usr/bin/configure-interface) script changes the router between the default Router mode, and the Managed Switch / Dumb AP without firewall.
 
