@@ -1,0 +1,195 @@
+#!/bin/sh
+
+# ANSI Colors
+GREEN="\033[0;32m"
+RED="\033[0;31m"
+YELLOW="\033[1;33m"
+NC="\033[0m" # No Color
+
+show_menu() {
+    clear
+    printf "%b=========================================%b\n" "${YELLOW}" "${NC}"
+    printf "         Guest Network Configuration         \n"
+    printf "%b=========================================%b\n" "${YELLOW}" "${NC}"
+    printf "\n"
+    printf "1. Remove Guest Network\n"
+    printf "   Removes the 'guest' interface and SSID.\n"
+    printf "\n"
+    printf "2. Add/Restore Guest Network\n"
+    printf "   Adds 'guest' interface and 'OpenWrt_Guest' SSID with no GUESTPASSWORD as password.\n"
+    printf "   Clients isolated, no AdBlock but can be enabled via Firewall.\n"
+    printf "\n"
+    printf "0. Exit\n"
+    printf "\n"
+}
+
+remove_guest_network()
+{
+    printf "\n%bRemoving Guest network...%b\n" "${YELLOW}" "${NC}"
+
+    printf "This will remove the 'guest' interface and all SSID attached to that interface.\n"
+
+    printf "Are you sure? (y/N): "
+    read -r confirm
+    if [ "$confirm" != "y" ]; then return; fi
+
+    # 1. Remove SSID from guest interface
+    # shellcheck disable=SC2046
+    BR_SECTION=$(uci show network | grep "network='guest'" | cut -d'.' -f2)
+    if [ -n "$BR_SECTION" ]; then
+        # Quote variable to prevent word splitting
+        uci del_list "network.${BR_SECTION}.ports=wan"
+    fi
+}
+
+set_router_mode() {
+
+    printf "This will restore Static IP 10.0.0.1 and enable NAT/DHCP/DNS.\n"
+
+    printf "Are you sure? (y/N): "
+    read -r confirm
+    if [ "$confirm" != "y" ]; then return; fi
+
+    # 1. Remove WAN from Bridge
+    # shellcheck disable=SC2046
+    BR_SECTION=$(uci show network | grep "name='br-lan'" | cut -d'.' -f2)
+    if [ -n "$BR_SECTION" ]; then
+        # Quote variable to prevent word splitting
+        uci del_list "network.${BR_SECTION}.ports=wan"
+    fi
+
+    # 2. Restore LAN Static IP
+    uci set network.lan.proto='static'
+    uci set network.lan.ipaddr='10.0.0.1'
+    uci set network.lan.netmask='255.255.255.0'
+
+    # 3. Restore WAN Interface
+    uci set network.wan.proto='dhcp'
+    uci set network.wan6.proto='dhcpv6'
+
+    # 4. Enable DHCP Server
+    uci delete dhcp.lan.ignore
+
+    uci commit network
+    uci commit dhcp
+
+    echo "Re-enabling Unbound and Odhcpd..."
+    /etc/init.d/unbound enable
+    /etc/init.d/unbound start
+    /etc/init.d/odhcpd enable
+    /etc/init.d/odhcpd start
+
+    echo "Applying changes... IP will be 10.0.0.1"
+    /etc/init.d/network restart
+
+    # Check firewall status and warn if disabled
+    if ! /etc/init.d/firewall enabled; then
+        printf "\n%bWARNING: The firewall is currently disabled.%b\n" "${RED}" "${NC}"
+        printf "You should enable it manually if desired (e.g., using 'configure-firewall' or '/etc/init.d/firewall enable').\n"
+    fi
+
+    exit 0
+}
+
+set_ap_mode() {
+    printf "\n%bConverting to Managed Switch (Dumb AP)...%b\n" "${YELLOW}" "${NC}"
+    printf "This will:\n"
+    printf "  1. Bridge WAN port to LAN (br-lan).\n"
+    printf "  2. Disable WAN routing.\n"
+    printf "  3. Set LAN to DHCP Client (gets IP from upstream).\n"
+    printf "  4. Disable local DHCP server, DNS (Unbound), odhcpd and BanIP.\n"
+    printf "  5. Disable Firewall completely (sets policies to ACCEPT).\n"
+    printf "  6. Disable Watchcat.\n"
+    printf "%bWARNING: You will lose connection immediately!%b\n" "${RED}" "${NC}"
+    printf "%bWARNING: Firewall will be disabled to avoid interference. Configure manually if needed.%b\n" "${YELLOW}" "${NC}"
+
+    printf "Are you sure? (y/N): "
+    read -r confirm
+    if [ "$confirm" != "y" ]; then return; fi
+
+    # 1. Add WAN to Bridge
+    # shellcheck disable=SC2046
+    BR_SECTION=$(uci show network | grep "name='br-lan'" | cut -d'.' -f2)
+    if [ -n "$BR_SECTION" ]; then
+        # Quote variable to prevent word splitting
+        uci add_list "network.${BR_SECTION}.ports=wan"
+    else
+        printf "%bError: Could not find br-lan device.%b\n" "${RED}" "${NC}"
+        return
+    fi
+
+    # 2. Configure LAN as DHCP Client
+    uci set network.lan.proto='dhcp'
+
+    # Remove static IP settings to prevent conflicts
+    uci delete network.lan.ipaddr
+    uci delete network.lan.netmask
+    uci delete network.lan.gateway
+    uci delete network.lan.dns
+
+    # 3. Disable DHCP Server on LAN
+    uci set dhcp.lan.ignore='1'
+
+    # 4. Disable WAN Interface logical config, and don't bring it on boot.
+    uci set network.wan.proto='none'
+    uci set network.wan.disabled='1'
+    uci set network.wan.auto='0'
+    uci set network.wan6.proto='none'
+    uci set network.wan6.disabled='1'
+    uci set network.wan6.auto='0'
+
+    uci commit network
+    uci commit dhcp
+
+    echo "Disabling Watchcat..."
+    /etc/init.d/watchcat stop
+    /etc/init.d/watchcat disable
+
+    echo "Disabling Unbound and Odhcpd (Not needed in AP mode)..."
+    /etc/init.d/unbound stop
+    /etc/init.d/unbound disable
+    /etc/init.d/odhcpd stop
+    /etc/init.d/odhcpd disable
+
+    echo "Disabling BanIP completely..."
+    /etc/init.d/banip stop
+    /etc/init.d/banip disable
+
+    echo "Disabling Firewall completely..."
+    /etc/init.d/firewall stop
+    /etc/init.d/firewall disable
+
+    # Flush tables and set default policy to ACCEPT (Replicating configure-firewall logic)
+    if command -v nft >/dev/null; then
+        echo "Flushing firewall tables (nft)..."
+        nft flush ruleset
+        nft add table inet filter
+        nft add chain inet filter input "{ type filter hook input priority 0 ; policy accept ; }"
+        nft add chain inet filter forward "{ type filter hook forward priority 0 ; policy accept ; }"
+        nft add chain inet filter output "{ type filter hook output priority 0 ; policy accept ; }"
+    else
+        echo "Flushing firewall tables (iptables)..."
+        iptables -P INPUT ACCEPT
+        iptables -P OUTPUT ACCEPT
+        iptables -P FORWARD ACCEPT
+        iptables -F
+        iptables -t nat -F
+        iptables -t mangle -F
+    fi
+
+    echo "Applying network changes... Goodbye!"
+    /etc/init.d/network restart
+    exit 0
+}
+
+while true; do
+    show_menu
+    printf "Select an option [0-2]: "
+    read -r choice
+    case "$choice" in
+        1) set_router_mode ;;
+        2) set_ap_mode ;;
+        0) exit 0 ;;
+        *) printf "%bInvalid option.%b\n" "${RED}" "${NC}"; sleep 1 ;;
+    esac
+done

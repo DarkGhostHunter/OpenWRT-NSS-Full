@@ -1,0 +1,438 @@
+#!/bin/sh
+
+# ==============================================================================
+# OpenWRT Static Web Apps Manager
+# ==============================================================================
+#
+# This script manages the installation, update, and removal of static web applications
+# stored as SquashFS images on an OpenWRT router.
+#
+# Features:
+# - Centralized configuration and logic.
+# - Automates download, SquashFS creation, and Service (init.d) generation.
+# - Configures uhttpd automatically with named blocks.
+# - Supports: it-tools, bentopdf.
+#
+# Usage:
+#   ./webapps.sh install [app_name|all] [--force] [--version <tag>]
+#   ./webapps.sh update [app_name|all] [--force] [--version <tag>]
+#   ./webapps.sh remove [app_name]
+#   ./webapps.sh list
+#
+# Options:
+#   --force      Reinstall even if the version matches the installed one.
+#   --version    Install a specific release tag instead of the latest.
+#
+# ==============================================================================
+
+# --- Configuration ---
+
+# Directory to store the SquashFS images and version files
+STORAGE_DIR="/mnt/sda1/.webapps"
+
+# Temporary working directory for downloads/extraction
+WORK_BASE="/tmp/webapps-work"
+
+# --- App Definitions ---
+# Format: "REPO_USER/REPO_NAME|MOUNT_POINT|FRIENDLY_NAME|PORT|USE_SOURCE"
+
+get_app_config() {
+    case "$1" in
+        it-tools)
+            echo "sharevb/it-tools|/www/tools|IT-Tools|8080|false"
+            ;;
+        bentopdf)
+            echo "alam00000/bentopdf|/www/bentopdf|BentoPDF|8081|false"
+            ;;
+        *)
+            echo ""
+            ;;
+    esac
+}
+
+ALL_APPS="it-tools bentopdf"
+
+# --- Colors ---
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# --- Logging Functions ---
+log() { echo -e "${GREEN}[$APP_NAME]${NC} $1"; }
+warn() { echo -e "${YELLOW}[$APP_NAME]${NC} $1"; }
+err() { echo -e "${RED}[ERROR]${NC} $1"; }
+info() { echo -e "${BLUE}[INFO]${NC} $1"; }
+
+# --- Dependency Check ---
+check_dependencies() {
+    local missing=0
+    for cmd in wget jq unzip mksquashfs mount umount uci awk; do
+        if ! command -v $cmd >/dev/null; then
+            err "Missing dependency: $cmd"
+            missing=1
+        fi
+    done
+    if [ $missing -eq 1 ]; then
+        echo "Please install missing packages (e.g., 'opkg update && opkg install wget-ssl jq unzip squashfs-tools-mksquashfs uci gawk')"
+        exit 1
+    fi
+}
+
+# --- Service Generator ---
+generate_init_script() {
+    local service_name="mount_$1"
+    local mount_point="$2"
+    local image_file="$3"
+    local script_path="/etc/init.d/$service_name"
+
+    log "Updating service script: $script_path"
+
+    cat <<EOF > "$script_path"
+#!/bin/sh /etc/rc.common
+
+START=99
+STOP=01
+
+APP_NAME="$1"
+MOUNT_POINT="$mount_point"
+IMAGE_FILE="$image_file"
+
+start() {
+    if [ ! -f "\$IMAGE_FILE" ]; then
+        logger -p error -t $service_name "Error: \$IMAGE_FILE not found."
+        return 1
+    fi
+
+    if [ ! -d "\$MOUNT_POINT" ]; then
+        mkdir -p "\$MOUNT_POINT"
+    fi
+
+    if mount | grep -q "\$MOUNT_POINT"; then
+        return 0
+    fi
+
+    logger -p notice -t $service_name "Mounting \$APP_NAME..."
+
+    # Mount loopback with read-only access
+    if mount -t squashfs -o loop,ro "\$IMAGE_FILE" "\$MOUNT_POINT"; then
+        logger -p notice -t $service_name "Mounted successfully"
+    else
+        logger -p error -t $service_name "Failed to mount"
+        return 1
+    fi
+}
+
+stop() {
+    if mount | grep -q "\$MOUNT_POINT"; then
+        logger -p notice -t $service_name "Unmounting..."
+        umount "\$MOUNT_POINT"
+    fi
+}
+
+restart() {
+    stop
+    start
+}
+EOF
+
+    chmod +x "$script_path"
+    if ! "$script_path" enabled; then
+        "$script_path" enable
+    fi
+}
+
+# --- uhttpd Configuration ---
+configure_uhttpd() {
+    local app_key="$1"
+    local mount_point="$2"
+    local port="$3"
+
+    local config_name=$(echo "$app_key" | tr '-' '_')
+
+    log "Configuring uhttpd section '$config_name' on port $port..."
+
+    uci set uhttpd.${config_name}=uhttpd
+    uci set uhttpd.${config_name}.home="$mount_point"
+    uci set uhttpd.${config_name}.redirect_https='0'
+
+    uci delete uhttpd.${config_name}.listen_http 2>/dev/null
+    uci add_list uhttpd.${config_name}.listen_http="0.0.0.0:$port"
+    uci add_list uhttpd.${config_name}.listen_http="[::]:$port"
+
+    uci commit uhttpd
+
+    if [ -f "/etc/init.d/uhttpd" ]; then
+        if output=$(/etc/init.d/uhttpd reload 2>&1); then
+            filtered=$(echo "$output" | grep -v "Skipping invalid Lua prefix" | grep -v "User-defined signal 1")
+            [ -n "$filtered" ] && echo "$filtered"
+            log "uhttpd reloaded. Access at http://<router_ip>:$port"
+        else
+            warn "uhttpd reload returned an error code. Please check 'logread'."
+        fi
+    else
+        warn "uhttpd service not found."
+    fi
+}
+
+remove_uhttpd_config() {
+    local app_key="$1"
+    local config_name=$(echo "$app_key" | tr '-' '_')
+
+    if uci get uhttpd.${config_name} >/dev/null 2>&1; then
+        log "Removing uhttpd configuration '$config_name'..."
+        uci delete uhttpd.${config_name}
+        uci commit uhttpd
+        /etc/init.d/uhttpd reload 2>&1 | grep -v "Skipping invalid Lua prefix"
+    fi
+}
+
+# --- Installation Logic ---
+install_app_logic() {
+    local app_key="$1"
+    local force_flag="$2"
+    local target_version="$3"
+
+    local config=$(get_app_config "$app_key")
+    if [ -z "$config" ]; then
+        err "Unknown app: $app_key"
+        return 1
+    fi
+
+    local repo=$(echo "$config" | cut -d'|' -f1)
+    local mount_point=$(echo "$config" | cut -d'|' -f2)
+    APP_NAME=$(echo "$config" | cut -d'|' -f3)
+    local port=$(echo "$config" | cut -d'|' -f4)
+    local use_source=$(echo "$config" | cut -d'|' -f5)
+
+    local image_file="$STORAGE_DIR/${app_key}.squashfs"
+    local version_file="$STORAGE_DIR/${app_key}.version"
+    local work_dir="$WORK_BASE/$app_key"
+
+    local api_url=""
+    if [ -n "$target_version" ]; then
+        log "Checking for specific version: $target_version..."
+        api_url="https://api.github.com/repos/$repo/releases/tags/$target_version"
+    else
+        log "Checking $repo for latest updates..."
+        api_url="https://api.github.com/repos/$repo/releases/latest"
+    fi
+
+    local release_json=$(wget -qO- --no-check-certificate "$api_url")
+
+    if [ -z "$release_json" ] || echo "$release_json" | grep -q "Not Found"; then
+        err "Failed to fetch release info (Version: ${target_version:-latest})."
+        return 1
+    fi
+
+    local version_found=$(echo "$release_json" | jq -r .tag_name)
+    local download_url=""
+
+    if [ "$use_source" = "true" ]; then
+        log "Configuration requests Source Code archive..."
+        download_url=$(echo "$release_json" | jq -r '.zipball_url')
+    else
+        download_url=$(echo "$release_json" | jq -r '.assets[] | select(.name | endswith(".zip")) | select(.name | contains("source") | not) | .browser_download_url' | head -n 1)
+        if [ -z "$download_url" ] || [ "$download_url" = "null" ]; then
+            warn "No pre-built binary zip found. Checking for any zip file..."
+            download_url=$(echo "$release_json" | jq -r '.assets[] | select(.name | endswith(".zip")) | .browser_download_url' | head -n 1)
+        fi
+    fi
+
+    if [ -z "$download_url" ] || [ "$download_url" = "null" ]; then
+        err "No compatible zip asset found in release $version_found."
+        return 1
+    fi
+
+    local current_version="none"
+    if [ -f "$version_file" ]; then
+        current_version=$(cat "$version_file")
+    fi
+
+    # Check if we should skip
+    if [ "$force_flag" != "true" ] && [ "$version_found" = "$current_version" ] && [ -f "$image_file" ]; then
+        log "Already up to date ($current_version). Skipping."
+        return 0
+    fi
+
+    if [ "$force_flag" = "true" ]; then
+        log "Force reinstall requested."
+    fi
+
+    log "Installing $version_found (Current: $current_version)..."
+
+    rm -rf "$work_dir"
+    mkdir -p "$work_dir"
+
+    log "Downloading from $download_url..."
+    if ! wget -qO "$work_dir/archive.zip" --no-check-certificate "$download_url"; then
+        err "Download failed."
+        rm -rf "$work_dir"
+        return 1
+    fi
+
+    log "Extracting..."
+    if ! unzip -q "$work_dir/archive.zip" -d "$work_dir/extracted"; then
+        err "Extraction failed."
+        rm -rf "$work_dir"
+        return 1
+    fi
+
+    local index_file=$(find "$work_dir/extracted" -name "index.html" | awk '{ print length, $0 }' | sort -n | cut -d" " -f2- | head -n 1)
+
+    if [ -z "$index_file" ]; then
+        err "Could not find 'index.html' in the archive."
+        rm -rf "$work_dir"
+        return 1
+    fi
+
+    local web_root=$(dirname "$index_file")
+    log "Found web root at: $web_root"
+
+    mkdir -p "$STORAGE_DIR"
+
+    log "Building SquashFS image..."
+    rm -f "$image_file"
+
+    if mksquashfs "$web_root" "$image_file" -comp lz4 -b 256k -no-xattrs -all-root -noappend -no-progress >/dev/null; then
+        echo "$version_found" > "$version_file"
+        log "Image created successfully."
+
+        generate_init_script "$app_key" "$mount_point" "$image_file"
+
+        log "Restarting service..."
+        "/etc/init.d/mount_$app_key" restart
+
+        configure_uhttpd "$app_key" "$mount_point" "$port"
+
+        log "Installation complete!"
+    else
+        err "Failed to create SquashFS image."
+        rm -rf "$work_dir"
+        return 1
+    fi
+
+    rm -rf "$work_dir"
+}
+
+# --- Removal Logic ---
+remove_app_logic() {
+    local app_key="$1"
+    local config=$(get_app_config "$app_key")
+
+    if [ -z "$config" ]; then
+        err "Unknown app: $app_key"
+        return 1
+    fi
+
+    APP_NAME=$(echo "$config" | cut -d'|' -f3)
+    local service_name="mount_$app_key"
+    local service_path="/etc/init.d/$service_name"
+    local image_file="$STORAGE_DIR/${app_key}.squashfs"
+    local version_file="$STORAGE_DIR/${app_key}.version"
+
+    log "Removing $APP_NAME..."
+
+    if [ -f "$service_path" ]; then
+        if "$service_path" enabled; then
+            "$service_path" disable
+        fi
+        "$service_path" stop
+        rm -f "$service_path"
+        log "Service removed."
+    fi
+
+    remove_uhttpd_config "$app_key"
+
+    if [ -f "$image_file" ]; then
+        rm -f "$image_file"
+        log "SquashFS image removed."
+    fi
+    if [ -f "$version_file" ]; then
+        rm -f "$version_file"
+    fi
+
+    log "Removal complete."
+}
+
+# --- Main Execution ---
+
+check_dependencies
+
+# Argument Parsing
+COMMAND="$1"
+TARGET="$2"
+
+# Shift past command and target if they exist
+if [ -n "$COMMAND" ]; then shift; fi
+if [ -n "$TARGET" ]; then shift; fi
+
+FORCE="false"
+VERSION=""
+
+# Parse optional flags
+while [ $# -gt 0 ]; do
+    case "$1" in
+        --force)
+            FORCE="true"
+            shift
+            ;;
+        --version)
+            if [ -n "$2" ]; then
+                VERSION="$2"
+                shift 2
+            else
+                echo "Error: --version requires an argument."
+                exit 1
+            fi
+            ;;
+        *)
+            echo "Unknown option: $1"
+            exit 1
+            ;;
+    esac
+done
+
+if [ -z "$COMMAND" ]; then
+    echo "Usage: $0 {install|update|remove} {app_name|all} [--force] [--version <tag>]"
+    echo "Available apps: $ALL_APPS"
+    exit 1
+fi
+
+case "$COMMAND" in
+    install|update)
+        if [ -n "$VERSION" ] && [ "$TARGET" = "all" ]; then
+            echo "Error: Cannot specify --version when installing 'all' apps."
+            echo "Please install apps individually to specify versions."
+            exit 1
+        fi
+
+        if [ "$TARGET" = "all" ]; then
+            for app in $ALL_APPS; do
+                install_app_logic "$app" "$FORCE" ""
+            done
+        else
+            install_app_logic "$TARGET" "$FORCE" "$VERSION"
+        fi
+        ;;
+    remove)
+        if [ -z "$TARGET" ]; then
+            echo "Please specify an app to remove."
+            exit 1
+        fi
+        remove_app_logic "$TARGET"
+        ;;
+    list)
+        echo "Installed Apps in $STORAGE_DIR:"
+        ls -1 "$STORAGE_DIR"/*.version 2>/dev/null | while read f; do
+            app=$(basename "$f" .version)
+            ver=$(cat "$f")
+            echo " - $app: $ver"
+        done
+        ;;
+    *)
+        echo "Unknown command: $COMMAND"
+        exit 1
+        ;;
+esac

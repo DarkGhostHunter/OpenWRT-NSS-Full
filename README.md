@@ -17,7 +17,7 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
     * **ZRAM 512MB:** Swap on compressed RAM with LZ4 compression to minimize flash wear on high memory pressure (like for huge AdBlock lists).  
 
 * **Networking**
-    * **`10.0.0.0`:** Home Network. With `odhcpd` for superior IPv6 management, `unbound` for secure private/secure DNS handling.
+    * **`10.0.0.0`:** Home Network. With `odhcpd` for superior IPv6 management, `unbound` for private/secure DNS handling.
     * **`192.168.0.0`:** IoT Network. No router access, only Internet. Isolated. Home Network can reach it, not viceversa.
     * **`LAN4` for IoT:** For IoT Hubs (Nest, Hue Bridge, HomePod, Alexa, etc.). Connected to IoT network. Can be _restored_ to normal LAN if you want (disable this interface and add it to the `lan` interface).
     * **[Firewall Rules](files/usr/bin/add-wan-rules-to-firewall):** Included to expose any service of the router by clicking a checkbox on the firewall.
@@ -35,7 +35,6 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
     * **[Easy SMB shares](files/etc/ksmbd/ksmbd.conf.template.example):** Robust, easy to use `ksmbd` template to mount your SSD/HDD/NVMe. Hardcoded `SMBUSER:SMBPASSWORD`.
     * **[BanIP](https://openwrt.org/docs/guide-user/services/banip):** Want to block an IP, a Country, a DNS-over-HTTPS or a social network? Now you can, but you're on your own for the proper instructions.
     * **[TTYD](https://tsl0922.github.io/ttyd/) + [btop](https://github.com/aristocratos/btop):** Show btop statistics at port `7682` with single unique process (great if you don't want to use netstat) with zero permissions (`nobody:nogroup`). 
-    * **[IT tools](https://it-tools.tech/):** Because you always need it even when the Internet goes down. Accessible at [`http://10.0.0.1:8080`](http://10.0.0.1:8080). Optional. Not persisted between upgrades.
 
 > [!NOTE]
 > 
@@ -113,23 +112,33 @@ Usteer already has some good-for-anything defaults about minimum signal strength
 
 > [!NOTE]
 > 
-> As a rule of thumb, use wider channels for 5GHz if your _Channel Analysis_ (under _Status_) shows very far neighbors with very low noise. Otherwise, stick with a narrower channel for better reach.   
+> As a rule of thumb, use wider channels for 5GHz if your _Channel Analysis_ (under _Status_) shows very far neighbors with very low noise. Otherwise, stick with a narrower channel for better reach.
 
-### 2. Add IT Tools
+### 2. Guest Network
 
-A handy tool site I always use is [IT Tools](https://it-tools.tech/). Of course, it won't work if the Internet goes down, so I included a small script that downloads the latest version and makes it available at port `:8080` in your router for _those cases_. Just call `install-it-tools` and then start and enable the service that mounts the image into the embedded web server (`uhttpd`).
+In some places, you may want to offer a "Guest network" so your guest can access the Internet through your router instead of relaying on celular (3G/4G/5G). If that your case, use the `configure-guest` script to create/remove a guest network and SSID.
 
 ```shell
-install-it-tools
-/etc/init.d/mount-it-tools start
-/etc/init.d/mount-it-tools enable
+configure-guest
 ```
 
-The `uhttpd` rules are for IT Tools [already added](files/etc/uci-defaults/z0-uhttpd), so apart from that there is nothing you need to do.
+This script will create the "guest" interface, an SSID on the 5GHz antenna, and isolate the interface from other networks. Devices on this interface are isolated from each other.
 
-> [!WARNING]
+### 3. Add WebApps
+
+Some handy tools that I always use are [Sharevb's fork](https://github.com/sharevb/it-tools) of [IT Tools](https://it-tools.tech/) and [BentoPDF](https://bentopdf.com/).
+
+Of course, these won't work without Internet, so I included a small script called `webapps` that downloads the latest versions and makes it available at a hardcoded port by reusing `uhttpd`. Just run `webapps` to install or remove them.
+
+```shell
+webapps install it-tools
+```
+
+The script will download, repack them into SquashFS and mount it into `uhttpd` web server. Also, it will create rules in `uhttpd` to serve them in a hard-coded port. 
+
+> [!NOTE]
 > 
-> IT Tools does not support being hosted in a subdirectory, like `10.0.0.1/it-tools`, due to how it's built. That's why it uses a custom port rather than a directory.
+> Webapps require a mounted external storage at `/mnt/sda1`, since these install at `/mnt/sda1/.webapps`.
 
 ### 2. Configure your firewall
 
