@@ -13,7 +13,7 @@ It's based on [jkool702 build](https://github.com/jkool702/openwrt-custom-builds
 * **Performance**
     * **NSS enabled:** Offloads network to custom hardware, less CPU usage.
     * **[CPU Pining](files/etc/init.d/smp_affinity):** CPU0 for generic tasks. Ethernet & Crypto on CPU1. WiFi on CPU2. NSS Queue in CPU1+CPU3. 
-    * **Kernel tweaks:** Specific for Cortex-A53 arch. NEON (SIMD) enabled. CRC32, Crypto (AES/SHA1/SHA2) hardware accelerated.
+    * **Kernel tweaks:** Specific for Cortex-A53 arch. NEON (SIMD) enabled. CRC32, Crypto (AES/SHA1/SHA2) hardware accelerated. 1000Hz timer.
     * **ZRAM 512MB:** Swap on compressed RAM with LZ4 compression to minimize flash wear on high memory pressure (like for huge AdBlock lists).  
 
 * **Networking**
