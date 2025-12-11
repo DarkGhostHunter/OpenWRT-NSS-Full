@@ -603,6 +603,10 @@ echo "# CONFIG_PACKAGE_dbus-utils is not set" >> .config
 sed -i '/CONFIG_PACKAGE_dbus/d' .config
 echo "# CONFIG_PACKAGE_dbus is not set" >> .config
 
+# Force Remove umdns (we have space for avahi!)
+sed -i '/CONFIG_PACKAGE_umdns/d' .config
+echo "# CONFIG_PACKAGE_umdns is not set" >> .config
+
 # Disable Vim
 sed -i '/CONFIG_PACKAGE_vim/d' .config
 sed -i '/CONFIG_PACKAGE_vim-full/d' .config
