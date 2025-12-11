@@ -674,41 +674,44 @@ else
 fi
 
 # 13. Kernel Tweaks
-log "Pre-preparing kernel..."
+log "Pre-preparing kernel and Enforcing LZ4/ZSTD Support..."
+
+# --- FIX: Patch Source Config Templates (Permanent Fix) ---
+# We modify the definition files in target/linux/ so 'make prepare' generates the correct config.
+log "Patching Kernel Source Config Templates in target/linux/..."
+
+find target/linux -name "config-*" -type f | while read -r config_file; do
+    # Only patch if it looks like a kernel config
+    if grep -q "CONFIG_" "$config_file"; then
+        # 1. Enable Core LZ4
+        sed -i '/CONFIG_LZ4_COMPRESS/d' "$config_file"
+        echo "CONFIG_LZ4_COMPRESS=y" >> "$config_file"
+        sed -i '/CONFIG_LZ4_DECOMPRESS/d' "$config_file"
+        echo "CONFIG_LZ4_DECOMPRESS=y" >> "$config_file"
+
+        # 2. Enable SquashFS LZ4
+        sed -i '/CONFIG_SQUASHFS_LZ4/d' "$config_file"
+        echo "CONFIG_SQUASHFS_LZ4=y" >> "$config_file"
+
+        # 3. Enable Core ZSTD
+        sed -i '/CONFIG_ZSTD_COMPRESS/d' "$config_file"
+        echo "CONFIG_ZSTD_COMPRESS=y" >> "$config_file"
+        sed -i '/CONFIG_ZSTD_DECOMPRESS/d' "$config_file"
+        echo "CONFIG_ZSTD_DECOMPRESS=y" >> "$config_file"
+
+        # 4. Enable SquashFS ZSTD
+        sed -i '/CONFIG_SQUASHFS_ZSTD/d' "$config_file"
+        echo "CONFIG_SQUASHFS_ZSTD=y" >> "$config_file"
+    fi
+done
+log "Kernel source templates patched."
+# --- END FIX ---
+
+# Continue with standard prep (optional, but good for caching)
 safe_make "Prepare Kernel Config" prepare_kernel_conf
 
 KERNEL_BUILD_DIR=$(find build_dir/target* -maxdepth 2 -name "linux-*" -type d | head -n 1)
 if [ -n "$KERNEL_BUILD_DIR" ]; then
-    # --- FIX START: Force LZ4 & ZSTD SquashFS support in Kernel .config ---
-    log "Forcing LZ4 and ZSTD SquashFS support in Kernel .config..."
-    K_CONFIG="${KERNEL_BUILD_DIR}/.config"
-    if [ -f "$K_CONFIG" ]; then
-        # 1. Enable core LZ4 algorithms
-        sed -i '/CONFIG_LZ4_COMPRESS/d' "$K_CONFIG"
-        echo "CONFIG_LZ4_COMPRESS=y" >> "$K_CONFIG"
-        sed -i '/CONFIG_LZ4_DECOMPRESS/d' "$K_CONFIG"
-        echo "CONFIG_LZ4_DECOMPRESS=y" >> "$K_CONFIG"
-
-        # 2. Enable SquashFS LZ4 backend
-        sed -i '/CONFIG_SQUASHFS_LZ4/d' "$K_CONFIG"
-        echo "CONFIG_SQUASHFS_LZ4=y" >> "$K_CONFIG"
-
-        # 3. Enable core ZSTD algorithms
-        sed -i '/CONFIG_ZSTD_COMPRESS/d' "$K_CONFIG"
-        echo "CONFIG_ZSTD_COMPRESS=y" >> "$K_CONFIG"
-        sed -i '/CONFIG_ZSTD_DECOMPRESS/d' "$K_CONFIG"
-        echo "CONFIG_ZSTD_DECOMPRESS=y" >> "$K_CONFIG"
-
-        # 4. Enable SquashFS ZSTD backend
-        sed -i '/CONFIG_SQUASHFS_ZSTD/d' "$K_CONFIG"
-        echo "CONFIG_SQUASHFS_ZSTD=y" >> "$K_CONFIG"
-
-        log "Applied LZ4 and ZSTD patches to $K_CONFIG"
-    else
-        warn "Could not find Kernel .config at $K_CONFIG"
-    fi
-    # --- FIX END ---
-
     ARM64_MAKEFILE="${KERNEL_BUILD_DIR}/arch/arm64/Makefile"
     if [ -f "$ARM64_MAKEFILE" ]; then
         sed -i 's/^asm-arch := .*/asm-arch := armv8-a+crc+crypto/' "$ARM64_MAKEFILE"
