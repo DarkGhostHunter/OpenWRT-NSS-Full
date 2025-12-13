@@ -13,5 +13,4 @@ LUCI_PKGARCH:=all
 
 include $(TOPDIR)/feeds/luci/luci.mk
 
-# Call BuildPackage - OpenWrt buildroot signature
 $(eval $(call BuildPackage,luci-app-tailscale))

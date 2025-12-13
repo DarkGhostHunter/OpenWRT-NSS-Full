@@ -8,10 +8,9 @@ PKG_LICENSE:=Apache-2.0
 PKG_MAINTAINER:=Italo ISrael Baeza Cabrera
 
 LUCI_TITLE:=LuCI support for Plex Media Server
-LUCI_DEPENDS:=+luci-base +tailscale +ethtool
+LUCI_DEPENDS:=+luci-base
 LUCI_PKGARCH:=all
 
 include $(TOPDIR)/feeds/luci/luci.mk
 
-# Call BuildPackage - OpenWrt buildroot signature
 $(eval $(call BuildPackage,luci-app-plexmediaserver))
