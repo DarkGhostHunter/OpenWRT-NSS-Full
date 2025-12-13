@@ -1,0 +1,25 @@
+{
+  "luci-app-pairdrop": {
+    "description": "Grant access to PairDrop control commands",
+    "read": {
+      "uci": [
+        "pairdrop"
+      ],
+      "file": {
+        "/mnt/sda1/.webapps/": [ "read" ]
+      }
+    },
+    "write": {
+      "uci": [
+        "pairdrop"
+      ],
+      "file": {
+        "/etc/init.d/pairdrop": [ "exec" ],
+        "/bin/mount": [ "exec" ],
+        "/sbin/mount": [ "exec" ],
+        "/bin/sh": [ "exec" ],
+        "/mnt/sda1/.webapps/": [ "write" ]
+      }
+    }
+  }
+}

@@ -1,0 +1,6 @@
+
+config pairdrop 'main'
+    option enabled '0'
+    option port '8082'
+    option pairdrop_version ''
+    option node_version ''

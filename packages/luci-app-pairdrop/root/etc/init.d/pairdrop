@@ -1,0 +1,375 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+STOP=10
+
+USE_PROCD=1
+
+NAME=pairdrop
+WEBAPPS_DIR="/mnt/sda1/.webapps"
+TMP_DIR="$WEBAPPS_DIR/tmp/pairdrop"
+SQFS_FILE="$WEBAPPS_DIR/pairdrop.sqfs"
+MOUNT_POINT="/www/pairdrop"
+CONFIG_MOUNT_POINT="$MOUNT_POINT/pairdrop/public/rtc_config.json"
+DYNAMIC_CONFIG="/var/run/pairdrop_rtc_config.json"
+# Directory to store Bun cache and global data instead of ~/.bun
+BUN_DATA_DIR="$WEBAPPS_DIR/pairdrop/bun"
+
+DEPENDENCIES="coturn unzip"
+
+# --- Helper Functions ---
+
+log_info() {
+    logger -t pairdrop -p user.info -s "$1"
+}
+
+log_err() {
+    logger -t pairdrop -p user.err -s "$1"
+}
+
+exec_cmd() {
+    local cmd="$1"
+    local err_file="/tmp/pairdrop_cmd.err"
+
+    if ! eval "$cmd" 2> "$err_file"; then
+        local err_msg=$(cat "$err_file")
+        log_err "Command failed: $cmd"
+        [ -n "$err_msg" ] && log_err "Details: $err_msg"
+        rm -f "$err_file"
+        return 1
+    fi
+    rm -f "$err_file"
+    return 0
+}
+
+get_arch() {
+    local arch=$(uname -m)
+    case "$arch" in
+        x86_64) echo "x64" ;;
+        aarch64) echo "aarch64" ;;
+        *) echo "" ;;
+    esac
+}
+
+get_latest_github_tag() {
+    local repo="$1"
+    wget -qO- "https://api.github.com/repos/$repo/releases/latest" | \
+    grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'
+}
+
+generate_rtc_config() {
+    local target_file="$1"
+
+    local ip4=$(ip -4 addr show br-lan 2>/dev/null | grep -oP '(?<=inet\s)\d+(\.\d+){3}' | head -n 1)
+    local ip6=$(ip -6 addr show br-lan 2>/dev/null | grep -oP '(?<=inet6\s)[a-f0-9:]+(?=/)' | head -n 1)
+
+    [ -z "$ip4" ] && ip4=$(ifconfig br-lan 2>/dev/null | grep 'inet addr' | cut -d: -f2 | awk '{print $1}')
+
+    log_info "Generating RTC Config. IPv4: ${ip4:-None}, IPv6: ${ip6:-None}"
+
+    echo '{ "sdpSemantics": "unified-plan", "iceServers": [ { "urls": [' > "$target_file"
+
+    local added=0
+    if [ -n "$ip4" ]; then
+        echo "\"stun:$ip4:3478\"" >> "$target_file"
+        added=1
+    fi
+
+    if [ -n "$ip6" ]; then
+        [ "$added" -eq 1 ] && echo "," >> "$target_file"
+        echo "\"stun:[$ip6]:3478\"" >> "$target_file"
+    fi
+
+    echo '] } ] }' >> "$target_file"
+}
+
+# --- Service Functions ---
+
+install() {
+    log_info "Starting installation..."
+
+    if ! mount | grep -q "/mnt/sda1"; then
+        log_err "/mnt/sda1 is not mounted or not writable."
+        return 1
+    fi
+
+    # Load Config
+    local bun_ver
+    local pairdrop_ver
+    config_load pairdrop
+    config_get bun_ver main bun_version
+    config_get pairdrop_ver main pairdrop_version
+
+    if [ -z "$bun_ver" ]; then
+        log_info "Bun version not configured. Will download latest."
+    else
+        log_info "Bun version configured: $bun_ver"
+    fi
+
+    if [ -z "$pairdrop_ver" ]; then
+        pairdrop_ver=$(get_latest_github_tag "schlagmichdoch/PairDrop")
+        [ -z "$pairdrop_ver" ] && pairdrop_ver="v1.10.7"
+        log_info "Pairdrop version not configured. Retrieved latest: $pairdrop_ver"
+    fi
+
+    local arch=$(get_arch)
+    if [ -z "$arch" ]; then
+        log_err "Unsupported architecture $(uname -m). Bun requires x64 or aarch64."
+        return 1
+    fi
+
+    # Prepare Tmp
+    if ! exec_cmd "rm -rf '$TMP_DIR' && mkdir -p '$TMP_DIR/runtime' '$TMP_DIR/pairdrop'"; then
+        return 1
+    fi
+
+    # Create Bun Persistent Data Dir (to avoid filling /root/.bun)
+    if ! exec_cmd "mkdir -p '$BUN_DATA_DIR'"; then
+        log_err "Failed to create persistent Bun data dir at $BUN_DATA_DIR"
+        return 1
+    fi
+
+    # 2. Download & Install Bun (Musl)
+    local bun_filename="bun-linux-${arch}-musl"
+    local bun_url=""
+
+    if [ -z "$bun_ver" ]; then
+        bun_url="https://github.com/oven-sh/bun/releases/latest/download/${bun_filename}.zip"
+    else
+        bun_url="https://github.com/oven-sh/bun/releases/download/${bun_ver}/${bun_filename}.zip"
+    fi
+
+    log_info "Downloading Bun (musl) from $bun_url..."
+
+    local zip_file="$TMP_DIR/bun.zip"
+    if ! exec_cmd "wget -qO '$zip_file' '$bun_url'"; then
+        log_err "Bun download failed."
+        return 1
+    fi
+
+    log_info "Extracting Bun..."
+    if ! exec_cmd "unzip -q '$zip_file' -d '$TMP_DIR/bun_extract'"; then
+        log_err "Bun extraction failed. Ensure 'unzip' is installed."
+        rm -f "$zip_file"
+        return 1
+    fi
+    rm -f "$zip_file"
+
+    if [ -f "$TMP_DIR/bun_extract/${bun_filename}/bun" ]; then
+        mv "$TMP_DIR/bun_extract/${bun_filename}/bun" "$TMP_DIR/runtime/bun"
+        chmod +x "$TMP_DIR/runtime/bun"
+    else
+        log_err "Bun binary not found in extracted archive."
+        return 1
+    fi
+    rm -rf "$TMP_DIR/bun_extract"
+
+    # 3. Download & Install PairDrop
+    local pairdrop_url="https://github.com/schlagmichdoch/PairDrop/archive/refs/tags/${pairdrop_ver}.tar.gz"
+    log_info "Downloading PairDrop from $pairdrop_url..."
+
+    if ! exec_cmd "wget -qO- '$pairdrop_url' | tar -xz -C '$TMP_DIR/pairdrop' --strip-components=1"; then
+        log_err "PairDrop download or extraction failed."
+        return 1
+    fi
+
+    # 4. Install Dependencies via Bun
+    log_info "Installing dependencies with Bun..."
+
+    export PATH="$TMP_DIR/runtime:$PATH"
+
+    if ! bun --version >/dev/null 2>&1; then
+        log_err "ERROR: Downloaded Bun binary failed to execute."
+        return 1
+    fi
+
+    # Set HOME to persistent dir so global cache goes to /mnt/sda1/.../.bun
+    export HOME="$BUN_DATA_DIR"
+
+    # We execute install in the tmp dir, but cache is redirected
+    if ! exec_cmd "cd '$TMP_DIR/pairdrop' && bun install --production"; then
+        log_err "bun install failed. Check internet connection."
+        return 1
+    fi
+
+    # 5. Create Config
+    log_info "Creating initial config file..."
+    generate_rtc_config "$TMP_DIR/pairdrop/public/rtc_config.json"
+
+    # 6. Pack SquashFS
+    log_info "Packing SquashFS..."
+    exec_cmd "rm -f '$SQFS_FILE'"
+
+    # We exclude the .bun folder if it accidentally got created locally,
+    # though with HOME set it should be in BUN_DATA_DIR.
+    if ! exec_cmd "mksquashfs '$TMP_DIR' '$SQFS_FILE' -comp lz4 -noappend -e .bun -e .cache"; then
+        log_err "Failed to create SquashFS image."
+        return 1
+    fi
+
+    rm -rf "$TMP_DIR"
+
+    log_info "Installation complete. Bun cache located at $BUN_DATA_DIR"
+}
+
+uninstall() {
+    log_info "Uninstalling Pairdrop..."
+
+    local removed=0
+
+    if [ -f "$SQFS_FILE" ]; then
+        if exec_cmd "rm '$SQFS_FILE'"; then
+            log_info "Removed $SQFS_FILE"
+            removed=1
+        else
+            log_err "Failed to remove $SQFS_FILE"
+        fi
+    fi
+
+    # Remove the persistent bun cache/data directory
+    if [ -d "$BUN_DATA_DIR" ]; then
+        if exec_cmd "rm -rf '$BUN_DATA_DIR'"; then
+            log_info "Removed Bun data directory: $BUN_DATA_DIR"
+            removed=1
+        else
+            log_err "Failed to remove $BUN_DATA_DIR"
+        fi
+    fi
+
+    if [ "$removed" -eq 0 ]; then
+         log_info "Pairdrop not installed (no files found)."
+    fi
+}
+
+reinstall() {
+    uninstall
+    install
+}
+
+start_service() {
+    config_load pairdrop
+    local enabled
+    local port
+    config_get_bool enabled main enabled 0
+    config_get port main port 3000
+
+    if [ "$enabled" -eq 0 ]; then
+        log_info "Pairdrop is not enabled in the config. Exiting..."
+        return 0
+    fi
+
+    if [ ! -f "$SQFS_FILE" ]; then
+        log_err "Pairdrop squashfs not found. Please install first."
+        return 1
+    fi
+
+    if ! mount | grep -q "/mnt/sda1"; then
+        log_err "/mnt/sda1 not mounted."
+        return 1
+    fi
+
+    if ! mount | grep -q "$MOUNT_POINT"; then
+        exec_cmd "mkdir -p '$MOUNT_POINT'"
+        if ! exec_cmd "mount -t squashfs -o loop,ro '$SQFS_FILE' '$MOUNT_POINT'"; then
+             log_err "Failed to mount SquashFS image."
+             return 1
+        fi
+    fi
+
+    log_info "Mounted [$SQFS_FILE] into [$MOUNT_POINT]."
+    generate_rtc_config "$DYNAMIC_CONFIG"
+
+    if [ -f "$CONFIG_MOUNT_POINT" ]; then
+        if ! exec_cmd "mount --bind '$DYNAMIC_CONFIG' '$CONFIG_MOUNT_POINT'"; then
+            log_err "Failed to bind mount dynamic config."
+        fi
+    fi
+
+    log_info "Mounted [$DYNAMIC_CONFIG] into [$CONFIG_MOUNT_POINT]."
+
+    if ! pgrep -x "turnserver" >/dev/null; then
+        if [ -x /etc/init.d/coturn-server ]; then
+            log_info "Starting coturn-server..."
+            /etc/init.d/coturn-server start
+        fi
+    fi
+
+    log_info "Starting PairDrop with Bun on port $port..."
+
+    procd_open_instance
+    procd_set_param chdir "$MOUNT_POINT/pairdrop"
+    # Use absolute path to ensure Bun finds the script regardless of working dir quirks
+    procd_set_param command "$MOUNT_POINT/runtime/bun" "$MOUNT_POINT/pairdrop/server/index.js"
+    # Ensure Bun uses the persistent directory for any runtime cache/config by setting HOME
+    procd_set_param env HOME="$BUN_DATA_DIR"
+    procd_set_param env PORT="$port"
+    procd_set_param stdout 1
+    procd_set_param stderr 1
+    procd_set_param respawn
+    procd_close_instance
+}
+
+stop_service() {
+    log_info "Stopping Pairdrop..."
+
+    local proc_match="$MOUNT_POINT/runtime/bun $MOUNT_POINT/pairdrop/server/index.js"
+
+    # Also try matching without full path in case it was started differently
+    local proc_match_alt="$MOUNT_POINT/runtime/bun server/index.js"
+
+    if pgrep -f "$proc_match" >/dev/null; then
+        pkill -f "$proc_match"
+    elif pgrep -f "$proc_match_alt" >/dev/null; then
+        pkill -f "$proc_match_alt"
+    fi
+
+    # Wait loop
+    local i=0
+    while pgrep -f "$MOUNT_POINT/runtime/bun" >/dev/null; do
+         if [ "$i" -ge 10 ]; then
+             log_err "Process hung. Force killing..."
+             pkill -9 -f "$MOUNT_POINT/runtime/bun"
+             break
+         fi
+         sleep 1
+         i=$((i + 1))
+    done
+
+    if mount | grep -q "$CONFIG_MOUNT_POINT"; then
+        if ! umount "$CONFIG_MOUNT_POINT"; then
+             log_err "Failed to unmount config bind-mount. Force unmounting..."
+             umount -l "$CONFIG_MOUNT_POINT"
+        fi
+    fi
+
+    if mount | grep -q "$MOUNT_POINT"; then
+        log_info "Unmounting $MOUNT_POINT..."
+
+        if umount "$MOUNT_POINT"; then
+            log_info "Unmounted successfully."
+            return 0
+        fi
+
+        local timeout=5
+        local count=0
+        while [ $count -lt $timeout ]; do
+            sleep 1
+            if umount "$MOUNT_POINT" 2>/dev/null; then
+                log_info "Unmounted successfully."
+                return 0
+            fi
+            count=$((count + 1))
+        done
+
+        log_err "Timeout reached. Force unmounting..."
+        if ! umount -l "$MOUNT_POINT"; then
+            log_err "Failed to force unmount $MOUNT_POINT"
+            return 1
+        fi
+    fi
+}
+
+EXTRA_COMMANDS="install uninstall reinstall"
+EXTRA_HELP="        install    Download and install Pairdrop (using Bun)
+        uninstall  Remove Pairdrop files
+        reinstall  Reinstall Pairdrop"
