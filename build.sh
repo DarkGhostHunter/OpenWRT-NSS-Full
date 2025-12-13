@@ -584,6 +584,7 @@ add_package "kmod-br-netfilter" # Allows firewall rules to apply to traffic pass
 add_package "luci-app-minidlna"
 add_package "luci-app-netdata"
 add_package "luci-app-plexmediaserver"
+add_package "luci-app-pairdrop"
 add_package "luci-app-tailscale"
 add_package "luci-app-zerotier"
 
