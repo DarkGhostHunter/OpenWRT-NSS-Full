@@ -434,8 +434,7 @@ install_dependencies
 # Configs still come from REPO_CUSTOM
 manage_git "$REPO_CUSTOM" "$CUSTOM_FILES_DIR" "main-NSS"
 manage_git "$REPO_FIRMWARE" "$BUILD_DIR" "$BRANCH_FIRMWARE"
-# Changed fantastic-packages to use 'snapshot' branch
-manage_git "$REPO_FANTASTIC" "$FANTASTIC_PACKAGES_DIR" "snapshot"
+manage_git "$REPO_FANTASTIC" "$FANTASTIC_PACKAGES_DIR" "main"
 
 # 5. Prepare Build Environment
 cd "${BUILD_DIR}"
