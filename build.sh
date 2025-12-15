@@ -289,7 +289,17 @@ interactive_setup() {
     # 5. Update Firmware Repositories
     log "Checking Firmware Repositories..."
     manage_git "$REPO_FIRMWARE" "$BUILD_DIR" "$BRANCH_FIRMWARE"
-    # Fantastic packages is inside build dir, so managed after firmware clone
+
+    # --- FIX: Patch libubox to ignore hash mismatch on snapshot builds ---
+    if [ -d "${BUILD_DIR}/package/libs/libubox" ]; then
+        log "[FIX] Patching libubox Makefile to skip hash check..."
+        find "${BUILD_DIR}/package/libs/libubox" -name Makefile -exec sed -i "s/^PKG_MIRROR_HASH:=.*/PKG_MIRROR_HASH:=skip/;s/^PKG_HASH:=.*/PKG_HASH:=skip/" {} +
+    fi
+    # ---------------------------------------------------------------------
+
+    manage_git "$REPO_CUSTOM" "$CUSTOM_FILES_DIR" "main-NSS"
+    # Changed fantastic-packages to use 'master' branch instead of 'snapshot'
+    manage_git "$REPO_FANTASTIC" "$FANTASTIC_PACKAGES_DIR" "master"
 }
 
 # ==============================================================================
@@ -432,9 +442,7 @@ install_dependencies
 
 # 4. Fetch Sources
 # Configs still come from REPO_CUSTOM
-manage_git "$REPO_CUSTOM" "$CUSTOM_FILES_DIR" "main-NSS"
-manage_git "$REPO_FIRMWARE" "$BUILD_DIR" "$BRANCH_FIRMWARE"
-manage_git "$REPO_FANTASTIC" "$FANTASTIC_PACKAGES_DIR" "master"
+# (Repositories managed in interactive_setup)
 
 # 5. Prepare Build Environment
 cd "${BUILD_DIR}"
